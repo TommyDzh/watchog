@@ -1,0 +1,26 @@
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/optimization.py:429: FutureWarning: This implementation of AdamW is deprecated and will be removed in a future version. Use the PyTorch implementation torch.optim.AdamW instead, or set `no_deprecation_warning=True` to disable this warning
+  warnings.warn(
+We strongly recommend passing in an `attention_mask` since your input_ids may be padded. See https://huggingface.co/docs/transformers/troubleshooting#incorrect-output-when-padding-tokens-arent-masked.
+/home/zhihao/jupyterprojects/TU/watchog/supcl_ft.py:642: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matricesor `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at  ../aten/src/ATen/native/TensorShape.cpp:2981.)
+  labels = batch["label"].T
+Epoch 0 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 0 (gt-semtab22-dbpedia-all0): tr_loss=3.4259466 tr_macro_f1=0.0113 tr_micro_f1=0.2804  vl_loss=3.2186450 vl_macro_f1=0.0119 vl_micro_f1=0.2892 (53.73 sec.)
+Test starts
+Traceback (most recent call last):
+  File "/home/zhihao/jupyterprojects/TU/watchog/supcl_ft.py", line 924, in <module>
+    ts_micro_f1 = f1_score(ts_true_list,
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py", line 1146, in f1_score
+    return fbeta_score(
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py", line 1287, in fbeta_score
+    _, _, f, _ = precision_recall_fscore_support(
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py", line 1573, in precision_recall_fscore_support
+    labels = _check_set_wise_labels(y_true, y_pred, average, labels, pos_label)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py", line 1374, in _check_set_wise_labels
+    y_type, y_true, y_pred = _check_targets(y_true, y_pred)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py", line 86, in _check_targets
+    check_consistent_length(y_true, y_pred)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/utils/validation.py", line 397, in check_consistent_length
+    raise ValueError(
+ValueError: Found input variables with inconsistent numbers of samples: [1163, 2326]

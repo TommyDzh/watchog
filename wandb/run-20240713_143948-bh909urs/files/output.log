@@ -1,0 +1,15 @@
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/optimization.py:429: FutureWarning: This implementation of AdamW is deprecated and will be removed in a future version. Use the PyTorch implementation torch.optim.AdamW instead, or set `no_deprecation_warning=True` to disable this warning
+  warnings.warn(
+We strongly recommend passing in an `attention_mask` since your input_ids may be padded. See https://huggingface.co/docs/transformers/troubleshooting#incorrect-output-when-padding-tokens-arent-masked.
+Epoch 0 starts
+Epoch 0 (sato0): tr_loss=0.7277580 tr_macro_f1=0.4931 tr_micro_f1=0.8389  vl_loss=0.4007083 vl_macro_f1=0.6193 vl_micro_f1=0.9107 (201.46 sec.)
+Traceback (most recent call last):
+  File "/home/zhihao/jupyterprojects/TU/watchog/supcl_ft.py", line 845, in <module>
+    model.load_state_dict(torch.load(model_savepath, map_location=device))
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/torch/serialization.py", line 699, in load
+    with _open_file_like(f, 'rb') as opened_file:
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/torch/serialization.py", line 230, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/torch/serialization.py", line 211, in __init__
+    super(_open_file, self).__init__(open(name, mode))
+FileNotFoundError: [Errno 2] No such file or directory: '/data/zhihao/TU/Watchog/outputs/sato0/wikitables-simclr-bert_100000_10_32_256_5e-05_sample_row4,sample_row4_tfidf_entity_column_0.05_0_last.pt_bert-base-uncased-bs16-ml32-ne1-do0.5_best_f1_macro.pt'

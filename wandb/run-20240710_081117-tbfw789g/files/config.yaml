@@ -1,0 +1,102 @@
+wandb_version: 1
+
+model:
+  desc: null
+  value: Watchog
+pretrain_data:
+  desc: null
+  value: wikitables
+pretrained_model_path:
+  desc: null
+  value: ''
+data_path:
+  desc: null
+  value: /data/zhihao/TU/TURL/
+mode:
+  desc: null
+  value: simclr
+logdir:
+  desc: null
+  value: /data/zhihao/TU/Watchog/model/
+run_id:
+  desc: null
+  value: 0
+batch_size:
+  desc: null
+  value: 32
+max_len:
+  desc: null
+  value: 256
+size:
+  desc: null
+  value: 100000
+lr:
+  desc: null
+  value: 5.0e-05
+n_epochs:
+  desc: null
+  value: 10
+lm:
+  desc: null
+  value: bert
+projector:
+  desc: null
+  value: 768
+augment_op:
+  desc: null
+  value: sample_row4,sample_row4
+table_order:
+  desc: null
+  value: column
+sample_meth:
+  desc: null
+  value: tfidf_entity
+temperature:
+  desc: null
+  value: 0.05
+save_model:
+  desc: null
+  value: 10
+fp16:
+  desc: null
+  value: true
+gpus:
+  desc: null
+  value: '0'
+single_column:
+  desc: null
+  value: false
+_wandb:
+  desc: null
+  value:
+    code_path: code/supcl_train.py
+    python_version: 3.8.10
+    cli_version: 0.17.4
+    framework: huggingface
+    huggingface_version: 4.36.2
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1720599077
+    t:
+      1:
+      - 1
+      - 11
+      - 49
+      - 55
+      - 71
+      2:
+      - 1
+      - 11
+      - 49
+      - 55
+      - 71
+      3:
+      - 13
+      - 16
+      - 23
+      4: 3.8.10
+      5: 0.17.4
+      6: 4.36.2
+      8:
+      - 5
+      13: linux-x86_64

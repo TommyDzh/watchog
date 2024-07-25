@@ -1,0 +1,202 @@
+2024-07-18 16:21:48,392 INFO    StreamThr :1904495 [internal.py:wandb_internal():85] W&B internal server running at pid: 1904495, started at: 2024-07-18 16:21:48.390734
+2024-07-18 16:21:48,394 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: status
+2024-07-18 16:21:48,399 INFO    WriterThread:1904495 [datastore.py:open_for_write():87] open: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/run-9f2k3arc.wandb
+2024-07-18 16:21:48,400 DEBUG   SenderThread:1904495 [sender.py:send():379] send: header
+2024-07-18 16:21:48,453 DEBUG   SenderThread:1904495 [sender.py:send():379] send: run
+2024-07-18 16:21:48,988 INFO    SenderThread:1904495 [dir_watcher.py:__init__():211] watching files in: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files
+2024-07-18 16:21:48,989 INFO    SenderThread:1904495 [sender.py:_start_run_threads():1188] run started: 9f2k3arc with start time 1721319708.390434
+2024-07-18 16:21:48,998 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: check_version
+2024-07-18 16:21:48,999 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: check_version
+2024-07-18 16:21:49,067 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: run_start
+2024-07-18 16:21:49,081 DEBUG   HandlerThread:1904495 [system_info.py:__init__():26] System info init
+2024-07-18 16:21:49,081 DEBUG   HandlerThread:1904495 [system_info.py:__init__():41] System info init done
+2024-07-18 16:21:49,081 INFO    HandlerThread:1904495 [system_monitor.py:start():194] Starting system monitor
+2024-07-18 16:21:49,082 INFO    SystemMonitor:1904495 [system_monitor.py:_start():158] Starting system asset monitoring threads
+2024-07-18 16:21:49,083 INFO    HandlerThread:1904495 [system_monitor.py:probe():214] Collecting system info
+2024-07-18 16:21:49,083 INFO    SystemMonitor:1904495 [interfaces.py:start():188] Started cpu monitoring
+2024-07-18 16:21:49,084 INFO    SystemMonitor:1904495 [interfaces.py:start():188] Started disk monitoring
+2024-07-18 16:21:49,086 INFO    SystemMonitor:1904495 [interfaces.py:start():188] Started gpu monitoring
+2024-07-18 16:21:49,087 INFO    SystemMonitor:1904495 [interfaces.py:start():188] Started memory monitoring
+2024-07-18 16:21:49,088 INFO    SystemMonitor:1904495 [interfaces.py:start():188] Started network monitoring
+2024-07-18 16:21:49,118 DEBUG   HandlerThread:1904495 [system_info.py:probe():152] Probing system
+2024-07-18 16:21:49,118 DEBUG   HandlerThread:1904495 [system_info.py:_probe_git():137] Probing git
+2024-07-18 16:21:49,135 DEBUG   HandlerThread:1904495 [system_info.py:_probe_git():145] Probing git done
+2024-07-18 16:21:49,135 DEBUG   HandlerThread:1904495 [system_info.py:probe():200] Probing system done
+2024-07-18 16:21:49,135 DEBUG   HandlerThread:1904495 [system_monitor.py:probe():223] {'os': 'Linux-5.4.0-177-generic-x86_64-with-glibc2.29', 'python': '3.8.10', 'heartbeatAt': '2024-07-18T16:21:49.118145', 'startedAt': '2024-07-18T16:21:48.378822', 'docker': None, 'cuda': None, 'args': ('--shortcut_name', 'bert-base-uncased', '--task', 'gt-semtab22-dbpedia-all1', '--max_length', '128', '--batch_size', '16', '--epoch', '30', '--dropout_prob', '0.1', '--pretrained_ckpt_path', '/data/zhihao/TU/Watchog/model/', '--cl_tag', 'wikitables/simclr/bert_None_10_32_256_5e-05_sample_row4,sample_row4_tfidf_entity_column_0.05_0_last.pt', '--small_tag', 'blank', '--comment', 'None', '--from_scratch', '--eval_test'), 'state': 'running', 'program': 'supcl_ft.py', 'codePathLocal': 'supcl_ft.py', 'codePath': 'supcl_ft.py', 'git': {'remote': 'https://github.com/TommyDzh/watchog.git', 'commit': '7489d6daed08b07ceecb51b7a0de2a558c5c5549'}, 'email': '1151808852@qq.com', 'root': '/home/zhihao/jupyterprojects/TU/watchog', 'host': 'sig2', 'username': 'zhihao', 'executable': '/home/zhihao/jupyterprojects/jupyter/bin/python', 'cpu_count': 32, 'cpu_count_logical': 64, 'cpu_freq': {'current': 1366.8179687500003, 'min': 1200.0, 'max': 3900.0}, 'cpu_freq_per_core': [{'current': 1200.083, 'min': 1200.0, 'max': 3900.0}, {'current': 1240.976, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.328, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.769, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.543, 'min': 1200.0, 'max': 3900.0}, {'current': 1328.55, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.538, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.206, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.724, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.794, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.164, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.58, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.451, 'min': 1200.0, 'max': 3900.0}, {'current': 1201.011, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.502, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.951, 'min': 1200.0, 'max': 3900.0}, {'current': 1384.462, 'min': 1200.0, 'max': 3900.0}, {'current': 2899.999, 'min': 1200.0, 'max': 3900.0}, {'current': 1391.401, 'min': 1200.0, 'max': 3900.0}, {'current': 1304.829, 'min': 1200.0, 'max': 3900.0}, {'current': 1384.772, 'min': 1200.0, 'max': 3900.0}, {'current': 1298.597, 'min': 1200.0, 'max': 3900.0}, {'current': 1444.812, 'min': 1200.0, 'max': 3900.0}, {'current': 2384.066, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.105, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.003, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.669, 'min': 1200.0, 'max': 3900.0}, {'current': 1400.263, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.382, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.008, 'min': 1200.0, 'max': 3900.0}, {'current': 1493.807, 'min': 1200.0, 'max': 3900.0}, {'current': 1736.8, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.965, 'min': 1200.0, 'max': 3900.0}, {'current': 1336.408, 'min': 1200.0, 'max': 3900.0}, {'current': 1201.259, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.725, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.939, 'min': 1200.0, 'max': 3900.0}, {'current': 1477.982, 'min': 1200.0, 'max': 3900.0}, {'current': 1199.678, 'min': 1200.0, 'max': 3900.0}, {'current': 1201.132, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.8, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.871, 'min': 1200.0, 'max': 3900.0}, {'current': 1201.49, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.647, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.787, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.712, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.471, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.474, 'min': 1200.0, 'max': 3900.0}, {'current': 1306.121, 'min': 1200.0, 'max': 3900.0}, {'current': 2899.027, 'min': 1200.0, 'max': 3900.0}, {'current': 1366.244, 'min': 1200.0, 'max': 3900.0}, {'current': 1422.584, 'min': 1200.0, 'max': 3900.0}, {'current': 1459.613, 'min': 1200.0, 'max': 3900.0}, {'current': 1320.535, 'min': 1200.0, 'max': 3900.0}, {'current': 1462.728, 'min': 1200.0, 'max': 3900.0}, {'current': 2506.061, 'min': 1200.0, 'max': 3900.0}, {'current': 1201.121, 'min': 1200.0, 'max': 3900.0}, {'current': 1201.077, 'min': 1200.0, 'max': 3900.0}, {'current': 1201.074, 'min': 1200.0, 'max': 3900.0}, {'current': 1400.968, 'min': 1200.0, 'max': 3900.0}, {'current': 1201.031, 'min': 1200.0, 'max': 3900.0}, {'current': 1200.982, 'min': 1200.0, 'max': 3900.0}, {'current': 1336.904, 'min': 1200.0, 'max': 3900.0}, {'current': 1892.957, 'min': 1200.0, 'max': 3900.0}], 'disk': {'/': {'total': 1874.714729309082, 'used': 1448.6426849365234}}, 'gpu': 'NVIDIA GeForce RTX 3090', 'gpu_count': 3, 'gpu_devices': [{'name': 'NVIDIA GeForce RTX 3090', 'memory_total': 25769803776}, {'name': 'NVIDIA GeForce RTX 3090', 'memory_total': 25769803776}, {'name': 'NVIDIA GeForce RTX 3090', 'memory_total': 25769803776}], 'memory': {'total': 376.5656509399414}}
+2024-07-18 16:21:49,135 INFO    HandlerThread:1904495 [system_monitor.py:probe():224] Finished collecting system info
+2024-07-18 16:21:49,135 INFO    HandlerThread:1904495 [system_monitor.py:probe():227] Publishing system info
+2024-07-18 16:21:49,135 DEBUG   HandlerThread:1904495 [system_info.py:_save_code():44] Saving code
+2024-07-18 16:21:49,142 DEBUG   HandlerThread:1904495 [system_info.py:_save_code():67] Saving code done
+2024-07-18 16:21:49,142 DEBUG   HandlerThread:1904495 [system_info.py:_save_patches():84] Saving git patches
+2024-07-18 16:21:49,184 DEBUG   HandlerThread:1904495 [system_info.py:_save_patches():126] Saving git patches done
+2024-07-18 16:21:49,185 INFO    HandlerThread:1904495 [system_monitor.py:probe():229] Finished publishing system info
+2024-07-18 16:21:49,195 DEBUG   SenderThread:1904495 [sender.py:send():379] send: files
+2024-07-18 16:21:49,195 INFO    SenderThread:1904495 [sender.py:_save_file():1454] saving file wandb-metadata.json with policy now
+2024-07-18 16:21:49,196 INFO    SenderThread:1904495 [sender.py:_save_file():1454] saving file code/supcl_ft.py with policy now
+2024-07-18 16:21:49,197 INFO    SenderThread:1904495 [sender.py:_save_file():1454] saving file diff.patch with policy now
+2024-07-18 16:21:49,944 INFO    wandb-upload_0:1904495 [upload_job.py:push():130] Uploaded file /tmp/tmp6tjuc7dtwandb/6jjss9fn-wandb-metadata.json
+2024-07-18 16:21:49,992 INFO    Thread-12 :1904495 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/diff.patch
+2024-07-18 16:21:49,992 INFO    Thread-12 :1904495 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/code/supcl_ft.py
+2024-07-18 16:21:49,993 INFO    Thread-12 :1904495 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/wandb-metadata.json
+2024-07-18 16:21:49,993 INFO    Thread-12 :1904495 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/code
+2024-07-18 16:21:50,169 INFO    wandb-upload_1:1904495 [upload_job.py:push():130] Uploaded file /tmp/tmp6tjuc7dtwandb/87ux8reu-code/supcl_ft.py
+2024-07-18 16:21:50,186 INFO    wandb-upload_2:1904495 [upload_job.py:push():130] Uploaded file /tmp/tmp6tjuc7dtwandb/ulpfczjp-diff.patch
+2024-07-18 16:21:51,324 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: python_packages
+2024-07-18 16:21:51,325 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: python_packages
+2024-07-18 16:21:51,326 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: stop_status
+2024-07-18 16:21:51,327 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: stop_status
+2024-07-18 16:21:51,331 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-18 16:21:51,344 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: partial_history
+2024-07-18 16:21:51,566 DEBUG   SenderThread:1904495 [sender.py:send():379] send: telemetry
+2024-07-18 16:21:51,566 DEBUG   SenderThread:1904495 [sender.py:send():379] send: history
+2024-07-18 16:21:51,567 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: summary_record
+2024-07-18 16:21:51,570 INFO    SenderThread:1904495 [sender.py:_save_file():1454] saving file wandb-summary.json with policy end
+2024-07-18 16:21:51,572 DEBUG   SenderThread:1904495 [sender.py:send():379] send: exit
+2024-07-18 16:21:51,572 INFO    SenderThread:1904495 [sender.py:send_exit():586] handling exit code: 1
+2024-07-18 16:21:51,572 INFO    SenderThread:1904495 [sender.py:send_exit():588] handling runtime: 2
+2024-07-18 16:21:51,575 INFO    SenderThread:1904495 [sender.py:_save_file():1454] saving file wandb-summary.json with policy end
+2024-07-18 16:21:51,575 INFO    SenderThread:1904495 [sender.py:send_exit():594] send defer
+2024-07-18 16:21:51,575 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:51,576 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 0
+2024-07-18 16:21:51,576 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:51,576 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 0
+2024-07-18 16:21:51,576 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 1
+2024-07-18 16:21:51,577 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:51,577 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 1
+2024-07-18 16:21:51,577 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:51,577 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 1
+2024-07-18 16:21:51,577 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 2
+2024-07-18 16:21:51,577 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:51,577 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 2
+2024-07-18 16:21:51,577 INFO    HandlerThread:1904495 [system_monitor.py:finish():203] Stopping system monitor
+2024-07-18 16:21:51,578 DEBUG   SystemMonitor:1904495 [system_monitor.py:_start():172] Starting system metrics aggregation loop
+2024-07-18 16:21:51,579 DEBUG   SystemMonitor:1904495 [system_monitor.py:_start():179] Finished system metrics aggregation loop
+2024-07-18 16:21:51,579 INFO    HandlerThread:1904495 [interfaces.py:finish():200] Joined cpu monitor
+2024-07-18 16:21:51,579 DEBUG   SystemMonitor:1904495 [system_monitor.py:_start():183] Publishing last batch of metrics
+2024-07-18 16:21:51,579 INFO    HandlerThread:1904495 [interfaces.py:finish():200] Joined disk monitor
+2024-07-18 16:21:51,885 INFO    HandlerThread:1904495 [interfaces.py:finish():200] Joined gpu monitor
+2024-07-18 16:21:51,886 INFO    HandlerThread:1904495 [interfaces.py:finish():200] Joined memory monitor
+2024-07-18 16:21:51,886 INFO    HandlerThread:1904495 [interfaces.py:finish():200] Joined network monitor
+2024-07-18 16:21:51,887 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:51,887 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 2
+2024-07-18 16:21:51,887 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 3
+2024-07-18 16:21:51,888 DEBUG   SenderThread:1904495 [sender.py:send():379] send: stats
+2024-07-18 16:21:51,889 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:51,889 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 3
+2024-07-18 16:21:51,889 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:51,889 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 3
+2024-07-18 16:21:51,890 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 4
+2024-07-18 16:21:51,890 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:51,890 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 4
+2024-07-18 16:21:51,890 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:51,890 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 4
+2024-07-18 16:21:51,890 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 5
+2024-07-18 16:21:51,891 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:51,891 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 5
+2024-07-18 16:21:51,891 DEBUG   SenderThread:1904495 [sender.py:send():379] send: summary
+2024-07-18 16:21:51,895 INFO    SenderThread:1904495 [sender.py:_save_file():1454] saving file wandb-summary.json with policy end
+2024-07-18 16:21:51,895 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:51,895 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 5
+2024-07-18 16:21:51,895 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 6
+2024-07-18 16:21:51,896 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:51,896 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 6
+2024-07-18 16:21:51,896 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:51,897 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 6
+2024-07-18 16:21:51,902 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: status_report
+2024-07-18 16:21:51,990 INFO    Thread-12 :1904495 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/output.log
+2024-07-18 16:21:51,991 INFO    Thread-12 :1904495 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/wandb-summary.json
+2024-07-18 16:21:51,991 INFO    Thread-12 :1904495 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/requirements.txt
+2024-07-18 16:21:52,112 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 7
+2024-07-18 16:21:52,112 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:52,113 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 7
+2024-07-18 16:21:52,113 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:52,113 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 7
+2024-07-18 16:21:52,354 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: poll_exit
+2024-07-18 16:21:52,991 INFO    Thread-12 :1904495 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/config.yaml
+2024-07-18 16:21:53,579 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 8
+2024-07-18 16:21:53,580 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: poll_exit
+2024-07-18 16:21:53,580 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:53,581 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 8
+2024-07-18 16:21:53,581 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:53,581 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 8
+2024-07-18 16:21:53,581 INFO    SenderThread:1904495 [job_builder.py:build():440] Attempting to build job artifact
+2024-07-18 16:21:53,583 INFO    SenderThread:1904495 [job_builder.py:_get_source_type():569] is repo sourced job
+2024-07-18 16:21:53,624 INFO    SenderThread:1904495 [job_builder.py:build():545] adding wandb-job metadata file
+2024-07-18 16:21:53,643 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 9
+2024-07-18 16:21:53,644 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:53,645 DEBUG   SenderThread:1904495 [sender.py:send():379] send: artifact
+2024-07-18 16:21:53,645 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 9
+2024-07-18 16:21:53,992 INFO    Thread-12 :1904495 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/output.log
+2024-07-18 16:21:54,356 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: poll_exit
+2024-07-18 16:21:55,447 INFO    wandb-upload_1:1904495 [upload_job.py:push():85] Skipped uploading /home/zhihao/.local/share/wandb/artifacts/staging/tmp2z0m3r0l
+2024-07-18 16:21:55,692 INFO    wandb-upload_2:1904495 [upload_job.py:push():88] Uploaded file /tmp/tmp40s2g0nx/wandb-job.json
+2024-07-18 16:21:55,993 INFO    wandb-upload_0:1904495 [upload_job.py:push():88] Uploaded file /home/zhihao/.local/share/wandb/artifacts/staging/tmpahrfk5o_
+2024-07-18 16:21:57,515 INFO    SenderThread:1904495 [sender.py:send_artifact():1530] sent artifact job-https___github.com_TommyDzh_watchog.git_supcl_ft.py - {'id': 'QXJ0aWZhY3Q6OTk2OTc3NzY2', 'state': 'PENDING', 'artifactSequence': {'id': 'QXJ0aWZhY3RDb2xsZWN0aW9uOjI1NjU0MTE4OA==', 'latestArtifact': {'id': 'QXJ0aWZhY3Q6OTg5NzMwOTMz', 'versionIndex': 12}}}
+2024-07-18 16:21:57,516 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:57,516 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 9
+2024-07-18 16:21:57,516 INFO    SenderThread:1904495 [dir_watcher.py:finish():358] shutting down directory watcher
+2024-07-18 16:21:57,993 INFO    SenderThread:1904495 [dir_watcher.py:finish():388] scan: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files
+2024-07-18 16:21:57,994 INFO    SenderThread:1904495 [dir_watcher.py:finish():402] scan save: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/wandb-summary.json wandb-summary.json
+2024-07-18 16:21:57,994 INFO    SenderThread:1904495 [dir_watcher.py:finish():402] scan save: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/config.yaml config.yaml
+2024-07-18 16:21:57,995 INFO    SenderThread:1904495 [dir_watcher.py:finish():402] scan save: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/requirements.txt requirements.txt
+2024-07-18 16:21:58,003 INFO    SenderThread:1904495 [dir_watcher.py:finish():402] scan save: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/output.log output.log
+2024-07-18 16:21:58,004 INFO    SenderThread:1904495 [dir_watcher.py:finish():402] scan save: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/wandb-metadata.json wandb-metadata.json
+2024-07-18 16:21:58,004 INFO    SenderThread:1904495 [dir_watcher.py:finish():402] scan save: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/diff.patch diff.patch
+2024-07-18 16:21:58,014 INFO    SenderThread:1904495 [dir_watcher.py:finish():402] scan save: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/code/supcl_ft.py code/supcl_ft.py
+2024-07-18 16:21:58,014 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 10
+2024-07-18 16:21:58,014 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: poll_exit
+2024-07-18 16:21:58,015 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:58,015 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 10
+2024-07-18 16:21:58,016 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:58,016 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 10
+2024-07-18 16:21:58,016 INFO    SenderThread:1904495 [file_pusher.py:finish():169] shutting down file pusher
+2024-07-18 16:21:58,359 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: poll_exit
+2024-07-18 16:21:58,360 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: poll_exit
+2024-07-18 16:21:58,456 INFO    wandb-upload_1:1904495 [upload_job.py:push():130] Uploaded file /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/wandb-summary.json
+2024-07-18 16:21:58,483 INFO    wandb-upload_0:1904495 [upload_job.py:push():130] Uploaded file /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/config.yaml
+2024-07-18 16:21:58,484 INFO    wandb-upload_3:1904495 [upload_job.py:push():130] Uploaded file /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/requirements.txt
+2024-07-18 16:21:58,587 INFO    wandb-upload_2:1904495 [upload_job.py:push():130] Uploaded file /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/files/output.log
+2024-07-18 16:21:58,788 INFO    Thread-11 :1904495 [sender.py:transition_state():614] send defer: 11
+2024-07-18 16:21:58,789 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:58,793 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 11
+2024-07-18 16:21:58,794 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:58,794 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 11
+2024-07-18 16:21:58,794 INFO    SenderThread:1904495 [file_pusher.py:join():175] waiting for file pusher
+2024-07-18 16:21:58,795 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 12
+2024-07-18 16:21:58,795 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:58,796 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 12
+2024-07-18 16:21:58,796 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: status_report
+2024-07-18 16:21:58,796 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:58,796 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 12
+2024-07-18 16:21:58,797 INFO    SenderThread:1904495 [file_stream.py:finish():601] file stream finish called
+2024-07-18 16:21:59,027 INFO    SenderThread:1904495 [file_stream.py:finish():605] file stream finish is done
+2024-07-18 16:21:59,027 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 13
+2024-07-18 16:21:59,027 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:59,027 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 13
+2024-07-18 16:21:59,028 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:59,028 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 13
+2024-07-18 16:21:59,028 INFO    SenderThread:1904495 [sender.py:transition_state():614] send defer: 14
+2024-07-18 16:21:59,029 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: defer
+2024-07-18 16:21:59,029 DEBUG   SenderThread:1904495 [sender.py:send():379] send: final
+2024-07-18 16:21:59,029 INFO    HandlerThread:1904495 [handler.py:handle_request_defer():184] handle defer: 14
+2024-07-18 16:21:59,029 DEBUG   SenderThread:1904495 [sender.py:send():379] send: footer
+2024-07-18 16:21:59,030 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: defer
+2024-07-18 16:21:59,030 INFO    SenderThread:1904495 [sender.py:send_request_defer():610] handle sender defer: 14
+2024-07-18 16:21:59,031 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: poll_exit
+2024-07-18 16:21:59,032 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: poll_exit
+2024-07-18 16:21:59,032 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: server_info
+2024-07-18 16:21:59,033 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: poll_exit
+2024-07-18 16:21:59,033 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: server_info
+2024-07-18 16:21:59,038 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: get_summary
+2024-07-18 16:21:59,039 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: sampled_history
+2024-07-18 16:21:59,040 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-18 16:21:59,234 DEBUG   SenderThread:1904495 [sender.py:send_request():406] send_request: poll_exit
+2024-07-18 16:21:59,235 INFO    MainThread:1904495 [wandb_run.py:_footer_history_summary_info():3991] rendering history
+2024-07-18 16:21:59,235 INFO    MainThread:1904495 [wandb_run.py:_footer_history_summary_info():4023] rendering summary
+2024-07-18 16:21:59,235 INFO    MainThread:1904495 [wandb_run.py:_footer_sync_info():3950] logging synced files
+2024-07-18 16:21:59,236 DEBUG   HandlerThread:1904495 [handler.py:handle_request():158] handle_request: shutdown
+2024-07-18 16:21:59,236 INFO    HandlerThread:1904495 [handler.py:finish():882] shutting down handler
+2024-07-18 16:22:00,034 INFO    WriterThread:1904495 [datastore.py:close():296] close: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240718_162148-9f2k3arc/run-9f2k3arc.wandb
+2024-07-18 16:22:00,234 INFO    SenderThread:1904495 [sender.py:finish():1608] shutting down sender
+2024-07-18 16:22:00,235 INFO    SenderThread:1904495 [file_pusher.py:finish():169] shutting down file pusher
+2024-07-18 16:22:00,235 INFO    SenderThread:1904495 [file_pusher.py:join():175] waiting for file pusher

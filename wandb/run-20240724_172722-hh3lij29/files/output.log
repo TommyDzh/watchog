@@ -1,0 +1,202 @@
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/optimization.py:429: FutureWarning: This implementation of AdamW is deprecated and will be removed in a future version. Use the PyTorch implementation torch.optim.AdamW instead, or set `no_deprecation_warning=True` to disable this warning
+  warnings.warn(
+We strongly recommend passing in an `attention_mask` since your input_ids may be padded. See https://huggingface.co/docs/transformers/troubleshooting#incorrect-output-when-padding-tokens-arent-masked.
+Epoch 0 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 0 (gt-semtab22-dbpedia0): tr_loss=3.4902588 tr_macro_f1=0.0140 tr_micro_f1=0.2641  vl_loss=3.2043941 vl_macro_f1=0.0237 vl_micro_f1=0.3007 (30.81 sec.)
+Epoch 1 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 1 (gt-semtab22-dbpedia0): tr_loss=2.9739253 tr_macro_f1=0.0436 tr_micro_f1=0.3533  vl_loss=2.8941646 vl_macro_f1=0.0501 vl_micro_f1=0.3575 (29.74 sec.)
+Epoch 2 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 2 (gt-semtab22-dbpedia0): tr_loss=2.5583209 tr_macro_f1=0.0692 tr_micro_f1=0.4190  vl_loss=2.4284481 vl_macro_f1=0.0993 vl_micro_f1=0.4627 (30.26 sec.)
+Epoch 3 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 3 (gt-semtab22-dbpedia0): tr_loss=2.0790430 tr_macro_f1=0.1247 tr_micro_f1=0.5255  vl_loss=2.3758273 vl_macro_f1=0.1032 vl_micro_f1=0.4564 (30.04 sec.)
+Epoch 4 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 4 (gt-semtab22-dbpedia0): tr_loss=1.8059186 tr_macro_f1=0.1722 tr_micro_f1=0.5769  vl_loss=2.3153745 vl_macro_f1=0.1512 vl_micro_f1=0.4700 (30.24 sec.)
+Epoch 5 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 5 (gt-semtab22-dbpedia0): tr_loss=1.4553752 tr_macro_f1=0.2426 tr_micro_f1=0.6565  vl_loss=2.2712618 vl_macro_f1=0.1785 vl_micro_f1=0.5016 (29.99 sec.)
+Epoch 6 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 6 (gt-semtab22-dbpedia0): tr_loss=1.2098100 tr_macro_f1=0.3327 tr_micro_f1=0.7120  vl_loss=2.2400582 vl_macro_f1=0.2200 vl_micro_f1=0.4911 (29.93 sec.)
+Epoch 7 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 7 (gt-semtab22-dbpedia0): tr_loss=0.9771152 tr_macro_f1=0.4096 tr_micro_f1=0.7636  vl_loss=2.2630326 vl_macro_f1=0.2291 vl_micro_f1=0.5089 (30.24 sec.)
+Epoch 8 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 8 (gt-semtab22-dbpedia0): tr_loss=0.8412625 tr_macro_f1=0.4885 tr_micro_f1=0.8027  vl_loss=2.3209534 vl_macro_f1=0.2475 vl_micro_f1=0.5142 (30.27 sec.)
+Epoch 9 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 9 (gt-semtab22-dbpedia0): tr_loss=0.7071418 tr_macro_f1=0.5516 tr_micro_f1=0.8307  vl_loss=2.3320021 vl_macro_f1=0.2623 vl_micro_f1=0.5279 (30.15 sec.)
+Epoch 10 starts
+Epoch 10 (gt-semtab22-dbpedia0): tr_loss=0.6027823 tr_macro_f1=0.6258 tr_micro_f1=0.8538  vl_loss=2.4010345 vl_macro_f1=0.2453 vl_micro_f1=0.4974 (30.14 sec.)
+Epoch 11 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 11 (gt-semtab22-dbpedia0): tr_loss=0.5074941 tr_macro_f1=0.6991 tr_micro_f1=0.8815  vl_loss=2.4431734 vl_macro_f1=0.2740 vl_micro_f1=0.5079 (29.00 sec.)
+Epoch 12 starts
+Epoch 12 (gt-semtab22-dbpedia0): tr_loss=0.4203939 tr_macro_f1=0.7666 tr_micro_f1=0.9076  vl_loss=2.5419801 vl_macro_f1=0.2701 vl_micro_f1=0.5079 (30.04 sec.)
+Epoch 13 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 13 (gt-semtab22-dbpedia0): tr_loss=0.3479200 tr_macro_f1=0.8055 tr_micro_f1=0.9245  vl_loss=2.5684899 vl_macro_f1=0.2819 vl_micro_f1=0.5163 (29.26 sec.)
+Epoch 14 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 14 (gt-semtab22-dbpedia0): tr_loss=0.2915555 tr_macro_f1=0.8292 tr_micro_f1=0.9345  vl_loss=2.6330021 vl_macro_f1=0.2891 vl_micro_f1=0.5226 (30.46 sec.)
+Epoch 15 starts
+Epoch 15 (gt-semtab22-dbpedia0): tr_loss=0.2549868 tr_macro_f1=0.8692 tr_micro_f1=0.9446  vl_loss=2.7255231 vl_macro_f1=0.2789 vl_micro_f1=0.4932 (30.18 sec.)
+Epoch 16 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 16 (gt-semtab22-dbpedia0): tr_loss=0.2217796 tr_macro_f1=0.8899 tr_micro_f1=0.9519  vl_loss=2.6229616 vl_macro_f1=0.2904 vl_micro_f1=0.5321 (29.50 sec.)
+Epoch 17 starts
+Epoch 17 (gt-semtab22-dbpedia0): tr_loss=0.1766260 tr_macro_f1=0.9188 tr_micro_f1=0.9614  vl_loss=2.7020597 vl_macro_f1=0.2970 vl_micro_f1=0.5258 (29.82 sec.)
+Epoch 18 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 18 (gt-semtab22-dbpedia0): tr_loss=0.1614142 tr_macro_f1=0.9138 tr_micro_f1=0.9611  vl_loss=2.7673594 vl_macro_f1=0.3037 vl_micro_f1=0.5258 (30.14 sec.)
+Epoch 19 starts
+Epoch 19 (gt-semtab22-dbpedia0): tr_loss=0.2082190 tr_macro_f1=0.9189 tr_micro_f1=0.9554  vl_loss=2.7570881 vl_macro_f1=0.2592 vl_micro_f1=0.5058 (29.72 sec.)
+Epoch 20 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 20 (gt-semtab22-dbpedia0): tr_loss=0.1995664 tr_macro_f1=0.9074 tr_micro_f1=0.9514  vl_loss=2.7586037 vl_macro_f1=0.2879 vl_micro_f1=0.5216 (29.62 sec.)
+Epoch 21 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 21 (gt-semtab22-dbpedia0): tr_loss=0.1726148 tr_macro_f1=0.9309 tr_micro_f1=0.9614  vl_loss=2.8259479 vl_macro_f1=0.2773 vl_micro_f1=0.5237 (29.36 sec.)
+Epoch 22 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 22 (gt-semtab22-dbpedia0): tr_loss=0.1432814 tr_macro_f1=0.9400 tr_micro_f1=0.9660  vl_loss=2.9341165 vl_macro_f1=0.2793 vl_micro_f1=0.4984 (29.41 sec.)
+Epoch 23 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 23 (gt-semtab22-dbpedia0): tr_loss=0.1416016 tr_macro_f1=0.9442 tr_micro_f1=0.9674  vl_loss=2.8250730 vl_macro_f1=0.3011 vl_micro_f1=0.5163 (29.67 sec.)
+Epoch 24 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 24 (gt-semtab22-dbpedia0): tr_loss=0.0942857 tr_macro_f1=0.9666 tr_micro_f1=0.9777  vl_loss=2.8476093 vl_macro_f1=0.3053 vl_micro_f1=0.5205 (29.62 sec.)
+Epoch 25 starts
+Epoch 25 (gt-semtab22-dbpedia0): tr_loss=0.0923487 tr_macro_f1=0.9671 tr_micro_f1=0.9804  vl_loss=2.9809376 vl_macro_f1=0.2820 vl_micro_f1=0.5005 (30.31 sec.)
+Epoch 26 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 26 (gt-semtab22-dbpedia0): tr_loss=0.0692896 tr_macro_f1=0.9743 tr_micro_f1=0.9834  vl_loss=2.9463402 vl_macro_f1=0.2941 vl_micro_f1=0.5184 (29.88 sec.)
+Epoch 27 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 27 (gt-semtab22-dbpedia0): tr_loss=0.0662172 tr_macro_f1=0.9755 tr_micro_f1=0.9845  vl_loss=2.9491770 vl_macro_f1=0.3102 vl_micro_f1=0.5373 (29.95 sec.)
+Epoch 28 starts
+Epoch 28 (gt-semtab22-dbpedia0): tr_loss=0.0625897 tr_macro_f1=0.9724 tr_micro_f1=0.9859  vl_loss=3.0300358 vl_macro_f1=0.2820 vl_micro_f1=0.5184 (29.84 sec.)
+Epoch 29 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 29 (gt-semtab22-dbpedia0): tr_loss=0.0659453 tr_macro_f1=0.9755 tr_micro_f1=0.9842  vl_loss=3.1282167 vl_macro_f1=0.2656 vl_micro_f1=0.5047 (29.70 sec.)
+Epoch 30 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 30 (gt-semtab22-dbpedia0): tr_loss=0.0756264 tr_macro_f1=0.9748 tr_micro_f1=0.9823  vl_loss=3.0534766 vl_macro_f1=0.2743 vl_micro_f1=0.5068 (29.78 sec.)
+Epoch 31 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 31 (gt-semtab22-dbpedia0): tr_loss=0.0557493 tr_macro_f1=0.9773 tr_micro_f1=0.9856  vl_loss=3.0660317 vl_macro_f1=0.2830 vl_micro_f1=0.5142 (29.77 sec.)
+Epoch 32 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 32 (gt-semtab22-dbpedia0): tr_loss=0.0528357 tr_macro_f1=0.9827 tr_micro_f1=0.9856  vl_loss=3.0758621 vl_macro_f1=0.2846 vl_micro_f1=0.5216 (29.93 sec.)
+Epoch 33 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 33 (gt-semtab22-dbpedia0): tr_loss=0.0507217 tr_macro_f1=0.9852 tr_micro_f1=0.9875  vl_loss=3.0918258 vl_macro_f1=0.2989 vl_micro_f1=0.5226 (30.03 sec.)
+Epoch 34 starts
+Epoch 34 (gt-semtab22-dbpedia0): tr_loss=0.0499454 tr_macro_f1=0.9830 tr_micro_f1=0.9883  vl_loss=3.0096660 vl_macro_f1=0.3073 vl_micro_f1=0.5226 (29.47 sec.)
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 35 starts
+Epoch 35 (gt-semtab22-dbpedia0): tr_loss=0.0415746 tr_macro_f1=0.9844 tr_micro_f1=0.9883  vl_loss=3.0722279 vl_macro_f1=0.3041 vl_micro_f1=0.5321 (30.51 sec.)
+Epoch 36 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 36 (gt-semtab22-dbpedia0): tr_loss=0.0382745 tr_macro_f1=0.9885 tr_micro_f1=0.9908  vl_loss=3.0724686 vl_macro_f1=0.2953 vl_micro_f1=0.5216 (30.27 sec.)
+Epoch 37 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 37 (gt-semtab22-dbpedia0): tr_loss=0.0354807 tr_macro_f1=0.9899 tr_micro_f1=0.9913  vl_loss=3.1001210 vl_macro_f1=0.2988 vl_micro_f1=0.5226 (29.70 sec.)
+Epoch 38 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 38 (gt-semtab22-dbpedia0): tr_loss=0.0342031 tr_macro_f1=0.9892 tr_micro_f1=0.9905  vl_loss=3.1082981 vl_macro_f1=0.3049 vl_micro_f1=0.5268 (30.08 sec.)
+Epoch 39 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 39 (gt-semtab22-dbpedia0): tr_loss=0.0304911 tr_macro_f1=0.9878 tr_micro_f1=0.9913  vl_loss=3.1345803 vl_macro_f1=0.2946 vl_micro_f1=0.5205 (30.09 sec.)
+Epoch 40 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 40 (gt-semtab22-dbpedia0): tr_loss=0.0298440 tr_macro_f1=0.9901 tr_micro_f1=0.9924  vl_loss=3.1356146 vl_macro_f1=0.3046 vl_micro_f1=0.5279 (29.75 sec.)
+Epoch 41 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 41 (gt-semtab22-dbpedia0): tr_loss=0.0290656 tr_macro_f1=0.9915 tr_micro_f1=0.9927  vl_loss=3.1554171 vl_macro_f1=0.3078 vl_micro_f1=0.5268 (29.64 sec.)
+Epoch 42 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 42 (gt-semtab22-dbpedia0): tr_loss=0.0274767 tr_macro_f1=0.9901 tr_micro_f1=0.9921  vl_loss=3.1698373 vl_macro_f1=0.2980 vl_micro_f1=0.5258 (29.89 sec.)
+Epoch 43 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 43 (gt-semtab22-dbpedia0): tr_loss=0.0310024 tr_macro_f1=0.9877 tr_micro_f1=0.9902  vl_loss=3.1485367 vl_macro_f1=0.3040 vl_micro_f1=0.5258 (29.98 sec.)
+Epoch 44 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 44 (gt-semtab22-dbpedia0): tr_loss=0.0282922 tr_macro_f1=0.9911 tr_micro_f1=0.9921  vl_loss=3.1564367 vl_macro_f1=0.3019 vl_micro_f1=0.5268 (29.53 sec.)
+Epoch 45 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 45 (gt-semtab22-dbpedia0): tr_loss=0.0266957 tr_macro_f1=0.9908 tr_micro_f1=0.9924  vl_loss=3.1687754 vl_macro_f1=0.2952 vl_micro_f1=0.5258 (29.66 sec.)
+Epoch 46 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 46 (gt-semtab22-dbpedia0): tr_loss=0.0244434 tr_macro_f1=0.9913 tr_micro_f1=0.9935  vl_loss=3.1755045 vl_macro_f1=0.2972 vl_micro_f1=0.5258 (30.19 sec.)
+Epoch 47 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 47 (gt-semtab22-dbpedia0): tr_loss=0.0233208 tr_macro_f1=0.9926 tr_micro_f1=0.9938  vl_loss=3.1802278 vl_macro_f1=0.2991 vl_micro_f1=0.5279 (30.15 sec.)
+Epoch 48 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 48 (gt-semtab22-dbpedia0): tr_loss=0.0246304 tr_macro_f1=0.9939 tr_micro_f1=0.9946  vl_loss=3.1847499 vl_macro_f1=0.2988 vl_micro_f1=0.5268 (30.53 sec.)
+Epoch 49 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 49 (gt-semtab22-dbpedia0): tr_loss=0.0218330 tr_macro_f1=0.9921 tr_micro_f1=0.9938  vl_loss=3.1867396 vl_macro_f1=0.2992 vl_micro_f1=0.5279 (29.84 sec.)
+Test starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))

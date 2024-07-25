@@ -1,0 +1,111 @@
+wandb_version: 1
+
+model:
+  desc: null
+  value: Watchog
+comment:
+  desc: null
+  value: ''
+shortcut_name:
+  desc: null
+  value: bert-base-uncased
+max_length:
+  desc: null
+  value: 128
+batch_size:
+  desc: null
+  value: 16
+epoch:
+  desc: null
+  value: 30
+random_seed:
+  desc: null
+  value: 4649
+train_n_seed_cols:
+  desc: null
+  value: -1
+num_classes:
+  desc: null
+  value: 101
+multi_gpu:
+  desc: null
+  value: false
+fp16:
+  desc: null
+  value: false
+warmup:
+  desc: null
+  value: 0.0
+lr:
+  desc: null
+  value: 5.0e-05
+task:
+  desc: null
+  value: gt-semtab22-dbpedia-all0
+colpair:
+  desc: null
+  value: false
+metadata:
+  desc: null
+  value: false
+from_scratch:
+  desc: null
+  value: true
+cl_tag:
+  desc: null
+  value: wikitables/simclr/bert_None_10_32_256_5e-05_sample_row4,sample_row4_tfidf_entity_column_0.05_0_last.pt
+dropout_prob:
+  desc: null
+  value: 0.1
+eval_test:
+  desc: null
+  value: true
+small_tag:
+  desc: null
+  value: comma
+data_path:
+  desc: null
+  value: /data/zhihao/TU/
+pretrained_ckpt_path:
+  desc: null
+  value: /data/zhihao/TU/Watchog/model/
+_wandb:
+  desc: null
+  value:
+    code_path: code/supcl_ft.py
+    python_version: 3.8.10
+    cli_version: 0.17.4
+    framework: huggingface
+    huggingface_version: 4.36.2
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1721373029
+    t:
+      1:
+      - 1
+      - 5
+      - 11
+      - 49
+      - 53
+      - 55
+      - 71
+      2:
+      - 1
+      - 5
+      - 11
+      - 49
+      - 53
+      - 55
+      - 71
+      3:
+      - 2
+      - 13
+      - 16
+      - 23
+      - 61
+      4: 3.8.10
+      5: 0.17.4
+      6: 4.36.2
+      8:
+      - 5
+      13: linux-x86_64

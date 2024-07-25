@@ -6,17 +6,17 @@ from multiprocessing import Process
 from multiprocessing import Semaphore
 
 '''run finetuning and evaluation on original datasets'''
-task = 'turl-re'
-# task = 'sato0'
+# task = 'turl-re'
+task = 'sato0'
 # task = 'turl'
-ml = 256
-bs = 32
-n_epochs = 20
+ml = 256  # 32
+bs = 32 # 16
+n_epochs = 30
 # n_epochs = 10
 base_model = 'bert-base-uncased'
 # base_model = 'distilbert-base-uncased'
-cl_tag = 'None/header/bert_1000000_10_32_256_5e-05_sample_row4,sample_row4_tfidf_entity_column_0.05_0_last'
-ckpt_path = '/efs/checkpoints/'
+cl_tag = "wikitables/simclr/bert_100000_10_32_256_5e-05_sample_row4,sample_row4_tfidf_entity_column_0.05_0_last.pt"
+ckpt_path = "/data/zhihao/TU/Watchog/model/"
 dropout_prob = 0.5
 from_scratch = False
 # from_scratch = True # True means using Huggingface's pre-trained language model's checkpoint

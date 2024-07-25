@@ -1,0 +1,42 @@
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/optimization.py:429: FutureWarning: This implementation of AdamW is deprecated and will be removed in a future version. Use the PyTorch implementation torch.optim.AdamW instead, or set `no_deprecation_warning=True` to disable this warning
+  warnings.warn(
+We strongly recommend passing in an `attention_mask` since your input_ids may be padded. See https://huggingface.co/docs/transformers/troubleshooting#incorrect-output-when-padding-tokens-arent-masked.
+/home/zhihao/jupyterprojects/TU/watchog/supcl_ft.py:642: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matricesor `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at  ../aten/src/ATen/native/TensorShape.cpp:2981.)
+  labels = batch["label"].T
+Epoch 0 starts
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1609: UndefinedMetricWarning: F-score is ill-defined and being set to 0.0 in labels with no true nor predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+Epoch 0 (gt-semtab22-dbpedia-all0): tr_loss=3.4302877 tr_macro_f1=0.0151 tr_micro_f1=0.2853  vl_loss=3.2227471 vl_macro_f1=0.0185 vl_micro_f1=0.2923 (52.48 sec.)
+Test starts
+Traceback (most recent call last):
+  File "/home/zhihao/jupyterprojects/TU/watchog/supcl_ft.py", line 881, in <module>
+    logits = model(batch["data"].T).cpu()
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/zhihao/jupyterprojects/TU/watchog/watchog/model.py", line 490, in forward
+    bert_output = self.bert(input_ids)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/models/bert/modeling_bert.py", line 1013, in forward
+    encoder_outputs = self.encoder(
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/models/bert/modeling_bert.py", line 607, in forward
+    layer_outputs = layer_module(
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/models/bert/modeling_bert.py", line 539, in forward
+    layer_output = apply_chunking_to_forward(
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/pytorch_utils.py", line 242, in apply_chunking_to_forward
+    return forward_fn(*input_tensors)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/models/bert/modeling_bert.py", line 551, in feed_forward_chunk
+    intermediate_output = self.intermediate(attention_output)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/models/bert/modeling_bert.py", line 452, in forward
+    hidden_states = self.intermediate_act_fn(hidden_states)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/activations.py", line 78, in forward
+    return self.act(input)
+RuntimeError: CUDA out of memory. Tried to allocate 96.00 MiB (GPU 0; 23.48 GiB total capacity; 19.87 GiB already allocated; 73.56 MiB free; 21.09 GiB reserved in total by PyTorch) If reserved memory is >> allocated memory try setting max_split_size_mb to avoid fragmentation.  See documentation for Memory Management and PYTORCH_CUDA_ALLOC_CONF

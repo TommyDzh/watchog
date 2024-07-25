@@ -1,0 +1,91 @@
+2024-07-10 08:12:04,882 INFO    StreamThr :3739679 [internal.py:wandb_internal():85] W&B internal server running at pid: 3739679, started at: 2024-07-10 08:12:04.881317
+2024-07-10 08:12:04,884 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: status
+2024-07-10 08:12:04,886 INFO    WriterThread:3739679 [datastore.py:open_for_write():87] open: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/run-k718c9ss.wandb
+2024-07-10 08:12:04,889 DEBUG   SenderThread:3739679 [sender.py:send():379] send: header
+2024-07-10 08:12:04,987 DEBUG   SenderThread:3739679 [sender.py:send():379] send: run
+2024-07-10 08:12:05,535 INFO    SenderThread:3739679 [dir_watcher.py:__init__():211] watching files in: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files
+2024-07-10 08:12:05,535 INFO    SenderThread:3739679 [sender.py:_start_run_threads():1188] run started: k718c9ss with start time 1720599124.88079
+2024-07-10 08:12:05,547 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: check_version
+2024-07-10 08:12:05,548 DEBUG   SenderThread:3739679 [sender.py:send_request():406] send_request: check_version
+2024-07-10 08:12:05,615 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: run_start
+2024-07-10 08:12:05,630 DEBUG   HandlerThread:3739679 [system_info.py:__init__():26] System info init
+2024-07-10 08:12:05,630 DEBUG   HandlerThread:3739679 [system_info.py:__init__():41] System info init done
+2024-07-10 08:12:05,630 INFO    HandlerThread:3739679 [system_monitor.py:start():194] Starting system monitor
+2024-07-10 08:12:05,631 INFO    SystemMonitor:3739679 [system_monitor.py:_start():158] Starting system asset monitoring threads
+2024-07-10 08:12:05,631 INFO    HandlerThread:3739679 [system_monitor.py:probe():214] Collecting system info
+2024-07-10 08:12:05,632 INFO    SystemMonitor:3739679 [interfaces.py:start():188] Started cpu monitoring
+2024-07-10 08:12:05,633 INFO    SystemMonitor:3739679 [interfaces.py:start():188] Started disk monitoring
+2024-07-10 08:12:05,635 INFO    SystemMonitor:3739679 [interfaces.py:start():188] Started gpu monitoring
+2024-07-10 08:12:05,638 INFO    SystemMonitor:3739679 [interfaces.py:start():188] Started memory monitoring
+2024-07-10 08:12:05,639 INFO    SystemMonitor:3739679 [interfaces.py:start():188] Started network monitoring
+2024-07-10 08:12:05,664 DEBUG   HandlerThread:3739679 [system_info.py:probe():152] Probing system
+2024-07-10 08:12:05,665 DEBUG   HandlerThread:3739679 [system_info.py:_probe_git():137] Probing git
+2024-07-10 08:12:05,678 DEBUG   HandlerThread:3739679 [system_info.py:_probe_git():145] Probing git done
+2024-07-10 08:12:05,678 DEBUG   HandlerThread:3739679 [system_info.py:probe():200] Probing system done
+2024-07-10 08:12:05,678 DEBUG   HandlerThread:3739679 [system_monitor.py:probe():223] {'os': 'Linux-5.4.0-177-generic-x86_64-with-glibc2.29', 'python': '3.8.10', 'heartbeatAt': '2024-07-10T08:12:05.664386', 'startedAt': '2024-07-10T08:12:04.874705', 'docker': None, 'cuda': None, 'args': ('--fp16', '--data_path', '/data/zhihao/TU/TURL/', '--pretrain_data', 'wikitables', '--mode', 'simclr', '--batch_size', '32', '--lr', '5e-5', '--temperature', '0.05', '--lm', 'bert', '--n_epochs', '10', '--max_len', '256', '--size', '100000', '--save_model', '10', '--augment_op', 'sample_row4,sample_row4', '--sample_meth', 'tfidf_entity', '--run_id', '0'), 'state': 'running', 'program': 'supcl_train.py', 'codePathLocal': 'supcl_train.py', 'codePath': 'supcl_train.py', 'git': {'remote': 'https://github.com/TommyDzh/watchog.git', 'commit': '7489d6daed08b07ceecb51b7a0de2a558c5c5549'}, 'email': '1151808852@qq.com', 'root': '/home/zhihao/jupyterprojects/TU/watchog', 'host': 'sig2', 'username': 'zhihao', 'executable': '/home/zhihao/jupyterprojects/jupyter/bin/python', 'cpu_count': 32, 'cpu_count_logical': 64, 'cpu_freq': {'current': 1699.099046875, 'min': 1200.0, 'max': 3900.0}, 'cpu_freq_per_core': [{'current': 1354.927, 'min': 1200.0, 'max': 3900.0}, {'current': 1914.164, 'min': 1200.0, 'max': 3900.0}, {'current': 1393.809, 'min': 1200.0, 'max': 3900.0}, {'current': 1358.252, 'min': 1200.0, 'max': 3900.0}, {'current': 1471.072, 'min': 1200.0, 'max': 3900.0}, {'current': 1933.078, 'min': 1200.0, 'max': 3900.0}, {'current': 1400.19, 'min': 1200.0, 'max': 3900.0}, {'current': 3688.499, 'min': 1200.0, 'max': 3900.0}, {'current': 2000.479, 'min': 1200.0, 'max': 3900.0}, {'current': 1400.511, 'min': 1200.0, 'max': 3900.0}, {'current': 1545.967, 'min': 1200.0, 'max': 3900.0}, {'current': 1952.636, 'min': 1200.0, 'max': 3900.0}, {'current': 1399.928, 'min': 1200.0, 'max': 3900.0}, {'current': 1300.871, 'min': 1200.0, 'max': 3900.0}, {'current': 1456.697, 'min': 1200.0, 'max': 3900.0}, {'current': 1543.972, 'min': 1200.0, 'max': 3900.0}, {'current': 1390.149, 'min': 1200.0, 'max': 3900.0}, {'current': 1682.39, 'min': 1200.0, 'max': 3900.0}, {'current': 1679.52, 'min': 1200.0, 'max': 3900.0}, {'current': 1900.425, 'min': 1200.0, 'max': 3900.0}, {'current': 1502.06, 'min': 1200.0, 'max': 3900.0}, {'current': 1300.629, 'min': 1200.0, 'max': 3900.0}, {'current': 1400.551, 'min': 1200.0, 'max': 3900.0}, {'current': 1900.745, 'min': 1200.0, 'max': 3900.0}, {'current': 1499.866, 'min': 1200.0, 'max': 3900.0}, {'current': 1300.155, 'min': 1200.0, 'max': 3900.0}, {'current': 3852.878, 'min': 1200.0, 'max': 3900.0}, {'current': 1300.774, 'min': 1200.0, 'max': 3900.0}, {'current': 2000.867, 'min': 1200.0, 'max': 3900.0}, {'current': 1600.348, 'min': 1200.0, 'max': 3900.0}, {'current': 3014.537, 'min': 1200.0, 'max': 3900.0}, {'current': 1400.988, 'min': 1200.0, 'max': 3900.0}, {'current': 1246.981, 'min': 1200.0, 'max': 3900.0}, {'current': 1565.715, 'min': 1200.0, 'max': 3900.0}, {'current': 1237.991, 'min': 1200.0, 'max': 3900.0}, {'current': 1319.268, 'min': 1200.0, 'max': 3900.0}, {'current': 1341.902, 'min': 1200.0, 'max': 3900.0}, {'current': 1533.82, 'min': 1200.0, 'max': 3900.0}, {'current': 1247.2, 'min': 1200.0, 'max': 3900.0}, {'current': 3602.385, 'min': 1200.0, 'max': 3900.0}, {'current': 2000.827, 'min': 1200.0, 'max': 3900.0}, {'current': 1325.304, 'min': 1200.0, 'max': 3900.0}, {'current': 1526.758, 'min': 1200.0, 'max': 3900.0}, {'current': 2147.691, 'min': 1200.0, 'max': 3900.0}, {'current': 1248.694, 'min': 1200.0, 'max': 3900.0}, {'current': 1226.478, 'min': 1200.0, 'max': 3900.0}, {'current': 1251.248, 'min': 1200.0, 'max': 3900.0}, {'current': 1475.693, 'min': 1200.0, 'max': 3900.0}, {'current': 1242.396, 'min': 1200.0, 'max': 3900.0}, {'current': 1900.887, 'min': 1200.0, 'max': 3900.0}, {'current': 1452.212, 'min': 1200.0, 'max': 3900.0}, {'current': 1900.369, 'min': 1200.0, 'max': 3900.0}, {'current': 1500.865, 'min': 1200.0, 'max': 3900.0}, {'current': 1300.526, 'min': 1200.0, 'max': 3900.0}, {'current': 1400.893, 'min': 1200.0, 'max': 3900.0}, {'current': 1900.88, 'min': 1200.0, 'max': 3900.0}, {'current': 1500.227, 'min': 1200.0, 'max': 3900.0}, {'current': 1250.967, 'min': 1200.0, 'max': 3900.0}, {'current': 3602.569, 'min': 1200.0, 'max': 3900.0}, {'current': 1251.579, 'min': 1200.0, 'max': 3900.0}, {'current': 2000.327, 'min': 1200.0, 'max': 3900.0}, {'current': 1600.194, 'min': 1200.0, 'max': 3900.0}, {'current': 3582.668, 'min': 1200.0, 'max': 3900.0}, {'current': 1400.48, 'min': 1200.0, 'max': 3900.0}], 'disk': {'/': {'total': 1874.714729309082, 'used': 1448.658676147461}}, 'gpu': 'NVIDIA GeForce RTX 3090', 'gpu_count': 3, 'gpu_devices': [{'name': 'NVIDIA GeForce RTX 3090', 'memory_total': 25769803776}, {'name': 'NVIDIA GeForce RTX 3090', 'memory_total': 25769803776}, {'name': 'NVIDIA GeForce RTX 3090', 'memory_total': 25769803776}], 'memory': {'total': 376.5656509399414}}
+2024-07-10 08:12:05,678 INFO    HandlerThread:3739679 [system_monitor.py:probe():224] Finished collecting system info
+2024-07-10 08:12:05,678 INFO    HandlerThread:3739679 [system_monitor.py:probe():227] Publishing system info
+2024-07-10 08:12:05,678 DEBUG   HandlerThread:3739679 [system_info.py:_save_code():44] Saving code
+2024-07-10 08:12:05,699 DEBUG   HandlerThread:3739679 [system_info.py:_save_code():67] Saving code done
+2024-07-10 08:12:05,699 DEBUG   HandlerThread:3739679 [system_info.py:_save_patches():84] Saving git patches
+2024-07-10 08:12:05,731 DEBUG   HandlerThread:3739679 [system_info.py:_save_patches():126] Saving git patches done
+2024-07-10 08:12:05,732 INFO    HandlerThread:3739679 [system_monitor.py:probe():229] Finished publishing system info
+2024-07-10 08:12:05,740 DEBUG   SenderThread:3739679 [sender.py:send():379] send: files
+2024-07-10 08:12:05,741 INFO    SenderThread:3739679 [sender.py:_save_file():1454] saving file wandb-metadata.json with policy now
+2024-07-10 08:12:05,741 INFO    SenderThread:3739679 [sender.py:_save_file():1454] saving file code/supcl_train.py with policy now
+2024-07-10 08:12:05,741 INFO    SenderThread:3739679 [sender.py:_save_file():1454] saving file diff.patch with policy now
+2024-07-10 08:12:05,998 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: python_packages
+2024-07-10 08:12:05,998 DEBUG   SenderThread:3739679 [sender.py:send_request():406] send_request: python_packages
+2024-07-10 08:12:06,001 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: stop_status
+2024-07-10 08:12:06,001 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:06,001 DEBUG   SenderThread:3739679 [sender.py:send():379] send: telemetry
+2024-07-10 08:12:06,003 DEBUG   SenderThread:3739679 [sender.py:send_request():406] send_request: stop_status
+2024-07-10 08:12:06,512 INFO    wandb-upload_0:3739679 [upload_job.py:push():130] Uploaded file /tmp/tmpgtgn0qiqwandb/h6sgmhm9-wandb-metadata.json
+2024-07-10 08:12:06,537 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/requirements.txt
+2024-07-10 08:12:06,538 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/diff.patch
+2024-07-10 08:12:06,538 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/code/supcl_train.py
+2024-07-10 08:12:06,538 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/wandb-metadata.json
+2024-07-10 08:12:06,538 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/code
+2024-07-10 08:12:06,547 INFO    wandb-upload_2:3739679 [upload_job.py:push():130] Uploaded file /tmp/tmpgtgn0qiqwandb/yw47qmf3-diff.patch
+2024-07-10 08:12:06,550 INFO    wandb-upload_1:3739679 [upload_job.py:push():130] Uploaded file /tmp/tmpgtgn0qiqwandb/fyg7hwdr-code/supcl_train.py
+2024-07-10 08:12:06,999 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:07,536 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_created():271] file/dir created: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/output.log
+2024-07-10 08:12:07,999 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:08,999 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:09,537 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/output.log
+2024-07-10 08:12:09,999 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:10,864 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: status_report
+2024-07-10 08:12:10,999 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:11,538 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/output.log
+2024-07-10 08:12:11,999 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:13,000 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:14,000 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:15,000 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:15,540 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/output.log
+2024-07-10 08:12:15,999 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: status_report
+2024-07-10 08:12:16,000 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:17,001 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:17,541 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/output.log
+2024-07-10 08:12:18,000 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:19,001 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:20,001 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:20,998 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: stop_status
+2024-07-10 08:12:20,999 DEBUG   SenderThread:3739679 [sender.py:send_request():406] send_request: stop_status
+2024-07-10 08:12:21,003 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:21,233 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: status_report
+2024-07-10 08:12:21,542 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/output.log
+2024-07-10 08:12:22,001 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:23,001 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:24,002 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:25,002 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:25,544 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/output.log
+2024-07-10 08:12:26,002 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:27,000 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: status_report
+2024-07-10 08:12:27,002 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:28,002 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:29,002 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:29,545 INFO    Thread-12 :3739679 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/files/output.log
+2024-07-10 08:12:30,002 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:31,002 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: internal_messages
+2024-07-10 08:12:33,000 DEBUG   HandlerThread:3739679 [handler.py:handle_request():158] handle_request: status_report
+2024-07-10 08:12:33,622 INFO    MainThread:3739679 [internal.py:handle_exit():75] Internal process exited

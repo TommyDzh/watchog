@@ -1,0 +1,1159 @@
+diff --git a/run_finetune.py b/run_finetune.py
+index 07828a4..f8ad954 100644
+--- a/run_finetune.py
++++ b/run_finetune.py
+@@ -6,17 +6,17 @@ from multiprocessing import Process
+ from multiprocessing import Semaphore
+ 
+ '''run finetuning and evaluation on original datasets'''
+-task = 'turl-re'
+-# task = 'sato0'
++# task = 'turl-re'
++task = 'sato0'
+ # task = 'turl'
+-ml = 256
+-bs = 32
+-n_epochs = 20
++ml = 256  # 32
++bs = 32 # 16
++n_epochs = 30
+ # n_epochs = 10
+ base_model = 'bert-base-uncased'
+ # base_model = 'distilbert-base-uncased'
+-cl_tag = 'None/header/bert_1000000_10_32_256_5e-05_sample_row4,sample_row4_tfidf_entity_column_0.05_0_last'
+-ckpt_path = '/efs/checkpoints/'
++cl_tag = "wikitables/simclr/bert_100000_10_32_256_5e-05_sample_row4,sample_row4_tfidf_entity_column_0.05_0_last.pt"
++ckpt_path = "/data/zhihao/TU/Watchog/model/"
+ dropout_prob = 0.5
+ from_scratch = False
+ # from_scratch = True # True means using Huggingface's pre-trained language model's checkpoint
+diff --git a/run_supcl_train.py b/run_supcl_train.py
+index 1ffc274..49d5db9 100644
+--- a/run_supcl_train.py
++++ b/run_supcl_train.py
+@@ -7,10 +7,9 @@ bs = 32
+ cuda_devices = '0'
+ 
+ '''unsupervised'''
+-# mode = 'simclr'
+ task = 'None'
+ '''supervised with header'''
+-mode = 'supcon' 
++mode = "simclr" # 'supcon' 
+ task = 'header'
+ 
+ ao = 'sample_row4,sample_row4'
+@@ -20,20 +19,20 @@ lm = 'bert'
+ 
+ gpus = ','.join([str(i) for i in range(len(cuda_devices.split(',')))])
+ n_epochs = 10
+-size = 100000
++save_model = 10
++size = -1
+ cnt = 0
+ run_id = 0
+ temp = 0.05
+ # temp = 0.07
+ 
+-data_path = "/efs/task_datasets/TURL/"
++data_path = "/data/zhihao/TU/TURL/"
+ 
+ if len(cuda_devices.split(',')) > 1:
+     cmd = """accelerate launch --config_file accelerate_config.yaml supcl_train.py --fp16 \
+         --data_path %s \
+         --pretrain_data %s \
+         --mode %s \
+-        --task %s \
+         --batch_size %s \
+         --lr 5e-5 \
+         --temperature %s \
+@@ -41,16 +40,15 @@ if len(cuda_devices.split(',')) > 1:
+         --n_epochs %d \
+         --max_len %d \
+         --size %d \
+-        --save_model \
++        --save_model %d \
+         --augment_op %s \
+         --sample_meth %s \
+-        --run_id %d""" % (data_path, pretrain_data, mode, task, bs, temp, lm, n_epochs, ml, size, ao, sm, run_id)
++        --run_id %d""" % (data_path, pretrain_data, mode, bs, temp, lm, n_epochs, ml, size, save_model, ao, sm, run_id)
+ else:
+     cmd = """python3 supcl_train.py --fp16 \
+         --data_path %s \
+         --pretrain_data %s \
+         --mode %s \
+-        --task %s \
+         --batch_size %s \
+         --lr 5e-5 \
+         --temperature %s \
+@@ -58,10 +56,10 @@ else:
+         --n_epochs %d \
+         --max_len %d \
+         --size %d \
+-        --save_model \
++        --save_model %d \
+         --augment_op %s \
+         --sample_meth %s \
+-        --run_id %d""" % (data_path, pretrain_data, mode, task, bs, temp, lm, n_epochs, ml, size, ao, sm, run_id)
++        --run_id %d""" % (data_path, pretrain_data, mode, bs, temp, lm, n_epochs, ml, size, save_model, ao, sm, run_id)
+ print(cmd)
+ # os.system('CUDA_VISIBLE_DEVICES={} {}'.format(
+ os.system('CUDA_VISIBLE_DEVICES={} {} &> {} &'.format(
+diff --git a/supcl_ft.py b/supcl_ft.py
+index b5199cc..6865dcf 100644
+--- a/supcl_ft.py
++++ b/supcl_ft.py
+@@ -8,8 +8,9 @@ import mlflow
+ import numpy as np
+ import pandas as pd
+ from sklearn.metrics import confusion_matrix, f1_score
++from collections import defaultdict
+ 
+-import pytrec_eval
++# import pytrec_eval
+ import torch
+ from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
+ from torch.utils.data import DataLoader, RandomSampler
+@@ -17,6 +18,7 @@ from transformers import BertTokenizer, BertForSequenceClassification, BertConfi
+ from transformers import AdamW, get_linear_schedule_with_warmup
+ from accelerate import Accelerator
+ 
++
+ torch.backends.cuda.matmul.allow_tf32 = True
+ 
+ from watchog.dataset import (
+@@ -33,7 +35,7 @@ from watchog.model import SupCLforTable, UnsupCLforTable, lm_mp
+ from watchog.utils import load_checkpoint, f1_score_multilabel, collate_fn, get_col_pred, ColPoplEvaluator
+ from watchog.utils import task_num_class_dict
+ from accelerate import DistributedDataParallelKwargs
+-
++import wandb
+ 
+ def set_seed(seed):
+     random.seed(seed)
+@@ -45,6 +47,8 @@ if __name__ == "__main__":
+     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+ 
+     parser = argparse.ArgumentParser()
++    parser.add_argument("--model", type=str, default="Watchog")
++    parser.add_argument("--comment", type=str, default="debug", help="to distinguish the runs")
+     parser.add_argument(
+         "--shortcut_name",
+         default="bert-base-uncased",
+@@ -61,13 +65,13 @@ if __name__ == "__main__":
+     )
+     parser.add_argument(
+         "--batch_size",
+-        default=32,
++        default=16,
+         type=int,
+         help="Batch size",
+     )
+     parser.add_argument(
+         "--epoch",
+-        default=30,
++        default=1,
+         type=int,
+         help="Number of epochs for training",
+     )
+@@ -106,7 +110,7 @@ if __name__ == "__main__":
+     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
+     parser.add_argument("--task",
+                         type=str,
+-                        default="sato0",
++                        default='gt-semtab22-dbpedia-all0',
+                         choices=[
+                             "sato0", "sato1", "sato2", "sato3", "sato4",
+                             "msato0", "msato1", "msato2", "msato3", "msato4",
+@@ -132,7 +136,7 @@ if __name__ == "__main__":
+                         help="Training from scratch")
+     parser.add_argument("--cl_tag",
+                         type=str,
+-                        default="viznet/None/model_drop_col_tfidf_entity_column_0",
++                        default="wikitables/simclr/bert_100000_10_32_256_5e-05_sample_row4,sample_row4_tfidf_entity_column_0.05_0_last.pt",
+                         help="path to the pre-trained file")
+     parser.add_argument("--dropout_prob",
+                         type=float,
+@@ -142,14 +146,14 @@ if __name__ == "__main__":
+                         help="evaluate on testset and do not save the model file")
+     parser.add_argument("--small_tag",
+                         type=str,
+-                        default="",
++                        default="comma",
+                         help="e.g., by_table_t5_v1")
+     parser.add_argument("--data_path",
+                         type=str,
+-                        default="/efs/task_datasets/")
++                        default="/data/zhihao/TU/")
+     parser.add_argument("--pretrained_ckpt_path",
+                         type=str,
+-                        default="./results/")    
++                        default="/data/zhihao/TU/Watchog/model/")    
+ 
+     args = parser.parse_args()
+     task = args.task
+@@ -177,8 +181,6 @@ if __name__ == "__main__":
+ 
+     shortcut_name = args.shortcut_name
+ 
+-    tag_name_col = "mosato"
+-
+     if args.colpair and args.metadata:
+         taskname = "{}-colpair-metadata".format(task)
+     elif args.colpair:
+@@ -190,48 +192,41 @@ if __name__ == "__main__":
+     else:
+         taskname = "".join(task)
+ 
+-    if args.eval_test:
+-        if args.from_scratch:
+-            tag_name = "outputs/{}/{}_{}-bs{}-ml{}-ne{}-do{}{}".format(
+-                taskname, tag_name_col, "{}-fromscratch".format(shortcut_name),
+-                batch_size, max_length, num_train_epochs, args.dropout_prob, 
+-                '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
+-        else:
+-            tag_name = "outputs/{}/{}_{}_{}-bs{}-ml{}-ne{}-do{}{}".format(
+-                taskname, args.cl_tag.replace('/', '-'), tag_name_col, shortcut_name, 
+-                batch_size, max_length, num_train_epochs, args.dropout_prob,
+-                '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
++
++    if args.from_scratch:
++        tag_name = "{}/{}-{}-bs{}-ml{}-ne{}-do{}{}".format(
++            taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag,
++            batch_size, max_length, num_train_epochs, args.dropout_prob, 
++            '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
+     else:
+-        if args.from_scratch:
+-            tag_name = "model/{}_{}_{}-bs{}-ml{}-ne{}-do{}{}".format(
+-                taskname, tag_name_col, "{}-fromscratch".format(shortcut_name),
+-                batch_size, max_length, num_train_epochs, args.dropout_prob,
+-                '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
+-        else:
+-            tag_name = "model/{}_{}_{}_{}-bs{}-ml{}-ne{}-do{}{}".format(
+-                args.cl_tag.replace('/', '-'), taskname, tag_name_col, shortcut_name, 
+-                batch_size, max_length, num_train_epochs, args.dropout_prob,
+-                '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
+-    if args.eval_test:
+-        if args.small_tag != '':
+-            tag_name = tag_name.replace('outputs', 'small_outputs')
+-            tag_name += '-' + args.small_tag
+-    
++        tag_name = "{}/{}_{}-{}-bs{}-ml{}-ne{}-do{}{}".format(
++            taskname, args.cl_tag.replace('/', '-'),  shortcut_name, args.small_tag,
++            batch_size, max_length, num_train_epochs, args.dropout_prob,
++            '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
++
++    # if args.eval_test:
++    #     if args.small_tag != '':
++    #         tag_name = tag_name.replace('outputs', 'small_outputs')
++    #         tag_name += '-' + args.small_tag
+     print(tag_name)
++    file_path = os.path.join(args.data_path, "Watchog", "outputs", tag_name)
+ 
+-    dirpath = os.path.dirname(tag_name)
++    dirpath = os.path.dirname(file_path)
+     if not os.path.exists(dirpath):
+         print("{} not exists. Created".format(dirpath))
+         os.makedirs(dirpath)
+     
+     if args.fp16:
+         torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
++        
++      
++        
+     # accelerator = Accelerator(mixed_precision="no" if not args.fp16 else "fp16")   
+     ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
+     accelerator = Accelerator(mixed_precision="no" if not args.fp16 else "fp16", kwargs_handlers=[ddp_kwargs])
+ 
+     device = accelerator.device
+-    ckpt_path = '{}/{}.pt'.format(args.pretrained_ckpt_path, args.cl_tag)
++    ckpt_path = os.path.join(args.pretrained_ckpt_path, args.cl_tag)
+     # ckpt_path = '/efs/checkpoints/{}.pt'.format(args.cl_tag)
+     ckpt = torch.load(ckpt_path, map_location=device)
+     ckpt_hp = ckpt['hp']
+@@ -266,7 +261,6 @@ if __name__ == "__main__":
+         
+     padder = collate_fn(trainset.tokenizer.pad_token_id)
+     with accelerator.main_process_first():
+-    # if True:
+         if task in [
+                 "sato0", "sato1", "sato2", "sato3", "sato4", "msato0",
+                 "msato1", "msato2", "msato3", "msato4"
+@@ -286,7 +280,8 @@ if __name__ == "__main__":
+                                         multicol_only=multicol_only,
+                                         train_ratio=1.0,
+                                         device=device,
+-                                        small_tag=args.small_tag)
++                                        small_tag=args.small_tag,
++                                        base_dirpath=os.path.join(args.data_path, "doduo", "data"))
+             valid_dataset = dataset_cls(cv=cv,
+                                         split="valid",
+                                         tokenizer=tokenizer,
+@@ -294,7 +289,8 @@ if __name__ == "__main__":
+                                         multicol_only=multicol_only,
+                                         train_ratio=1.0,
+                                         device=device,
+-                                        small_tag=args.small_tag)
++                                        small_tag=args.small_tag,
++                                        base_dirpath=os.path.join(args.data_path, "doduo", "data"))
+ 
+             train_sampler = RandomSampler(train_dataset)
+             train_dataloader = DataLoader(train_dataset,
+@@ -311,7 +307,8 @@ if __name__ == "__main__":
+                                         tokenizer=tokenizer,
+                                         max_length=max_length,
+                                         multicol_only=multicol_only,
+-                                        device=device)
++                                        device=device,
++                                        base_dirpath=os.path.join(args.data_path, "doduo", "data"))
+             test_dataloader = DataLoader(test_dataset,
+                                             batch_size=batch_size,
+                                             collate_fn=padder)   
+@@ -319,7 +316,7 @@ if __name__ == "__main__":
+         elif "gt-dbpedia" in task or "gt-schema" in task or "gt-semtab" in task:
+             if 'dbpedia' in task:
+                 if 'semtab22' in task:
+-                    src = 'dbpedia_property'
++                    src = 'dbpedia_property' # gt-dbpedia-semtab22-all0
+                 else:
+                     src = 'dbpedia'
+             else:
+@@ -332,7 +329,7 @@ if __name__ == "__main__":
+                     src = 'schema'
+             if task[-1] in "01234":
+                 cv = int(task[-1])
+-                dataset_cls = GittablesCVTablewiseDataset
++                dataset_cls = GittablesTablewiseDataset
+                 train_dataset = dataset_cls(cv=cv,
+                                             split="train",
+                                             src=src,
+@@ -340,6 +337,7 @@ if __name__ == "__main__":
+                                             max_length=max_length,
+                                             gt_only='all' not in task,
+                                             device=device,
++                                            base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
+                                             small_tag=args.small_tag)
+                 valid_dataset = dataset_cls(cv=cv,
+                                             split="valid", src=src,
+@@ -347,6 +345,7 @@ if __name__ == "__main__":
+                                             max_length=max_length,
+                                             gt_only='all' not in task,
+                                             device=device,
++                                            base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
+                                             small_tag=args.small_tag)
+ 
+                 train_sampler = RandomSampler(train_dataset)
+@@ -360,13 +359,15 @@ if __name__ == "__main__":
+                                             #   collate_fn=collate_fn)
+                                             collate_fn=padder)
+                 test_dataset = dataset_cls(cv=cv,
+-                                           split="valid", src=src,
++                                           split="test", src=src,
+                                             tokenizer=tokenizer,
+                                             max_length=max_length,
+                                             gt_only='all' not in task,
+-                                            device=device)
++                                            device=device,
++                                            base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
++                                            small_tag=args.small_tag)
+                 test_dataloader = DataLoader(test_dataset,
+-                                                batch_size=batch_size,
++                                                batch_size=batch_size//2,
+                                                 collate_fn=padder)    
+             else:
+                 dataset_cls = GittablesTablewiseDataset
+@@ -379,7 +380,7 @@ if __name__ == "__main__":
+                                             base_dirpath="./data/gittables_semtab22",
+                                             base_tag='',
+                                             small_tag=args.small_tag)
+-                valid_dataset = dataset_cls(split="test", src=src,
++                valid_dataset = dataset_cls(split="valid", src=src,
+                                             tokenizer=tokenizer,
+                                             max_length=max_length,
+                                             gt_only='all' not in task,
+@@ -527,7 +528,15 @@ if __name__ == "__main__":
+         else:
+             raise ValueError("task name must be either sato or turl.")
+ 
+-
++    if accelerator.is_local_main_process:
++        wandb.init(config=args,
++            project="TableUnderstanding",
++            name=f"{args.model} {args.comment} {args.small_tag}_DS@{args.task}_scratch@{args.from_scratch}_maxlen@{args.max_length}_bs@{args.batch_size}",
++            group="TU",
++            )
++        wandb.log({
++                f"tag_name": tag_name,
++            }, commit=True)
+     t_total = len(train_dataloader) * num_train_epochs
+     no_decay = ["bias", "LayerNorm.weight"]
+     optimizer_grouped_parameters = [
+@@ -553,7 +562,7 @@ if __name__ == "__main__":
+                                                 num_warmup_steps=0,
+                                                 num_training_steps=t_total)
+ 
+-    if "sato" in task:
++    if "sato" in task or "gt" in task:
+         loss_fn = CrossEntropyLoss()
+     elif "popl" in task:
+         loss_fn = CrossEntropyLoss()
+@@ -572,10 +581,14 @@ if __name__ == "__main__":
+     # Best validation score could be zero
+     best_vl_micro_f1 = -1
+     best_vl_macro_f1 = -1
++    best_vl_loss = 1e10
+     best_vl_micro_f1s_epoch = -1
+     best_vl_macro_f1s_epoch = -1
++    best_vl_loss_epoch = -1
+     loss_info_list = []
+-    eval_dict = []
++    eval_dict = defaultdict(dict)
++    time_epochs = []
++    # =============================Training Loop=============================
+     for epoch in range(num_train_epochs):
+         t1 = time()
+         print("Epoch", epoch, "starts")
+@@ -614,7 +627,7 @@ if __name__ == "__main__":
+                 tr_pred_list.update(all_preds)
+                 loss = loss_fn(filtered_logits, labels_1d)
+             else:
+-                logits, = model(batch["data"].T)
++                logits = model(batch["data"].T)
+                 if len(logits.shape) == 2:
+                     logits = logits.unsqueeze(0)
+                 
+@@ -624,7 +637,7 @@ if __name__ == "__main__":
+                     i, j = cls_indexes[n]
+                     logit_n = logits[i, j, :]
+                     filtered_logits[n] = logit_n
+-                 if "sato" in task or "gt-" in task:
++                if "sato" in task or "gt-" in task:
+                     if 'gt-' in task and '-all' in task:
+                         labels = batch["label"].T
+                         new_filtered_logits = []
+@@ -665,7 +678,7 @@ if __name__ == "__main__":
+ 
+             accelerator.backward(loss)
+             # loss.backward()
+-            tr_loss += loss.item()
++            tr_loss += loss.cpu().detach().item()
+             optimizer.step()
+             scheduler.step()
+             optimizer.zero_grad()
+@@ -688,7 +701,7 @@ if __name__ == "__main__":
+             tr_micro_f1, tr_macro_f1, tr_class_f1, _ = f1_score_multilabel(
+                 tr_true_list, tr_pred_list)
+ 
+-        # Validation
++        # ======================= Validation =======================
+         model.eval()
+         with accelerator.main_process_first():
+             device = accelerator.device
+@@ -712,7 +725,7 @@ if __name__ == "__main__":
+                     vl_pred_list.update(all_preds)
+                     loss = loss_fn(filtered_logits, labels_1d)
+                 else:
+-                    logits, = model(batch["data"].T)
++                    logits = model(batch["data"].T)
+                     if len(logits.shape) == 2:
+                         logits = logits.unsqueeze(0)
+                     filtered_logits = torch.zeros(cls_indexes.shape[0],
+@@ -762,7 +775,7 @@ if __name__ == "__main__":
+                             ).numpy().tolist()
+                         loss = loss_fn(filtered_logits, batch["label"].float())
+ 
+-                vl_loss += loss.item()
++                vl_loss += loss.cpu().detach().item()
+ 
+             vl_loss /= (len(valid_dataset) / batch_size)
+             if "sato" in task or "gt-" in task:
+@@ -782,212 +795,201 @@ if __name__ == "__main__":
+                 vl_micro_f1, vl_macro_f1, vl_class_f1, _ = f1_score_multilabel(
+                     vl_true_list, vl_pred_list)
+             
++            t2 = time()
++            if vl_micro_f1 > best_vl_micro_f1:
++                best_vl_micro_f1 = vl_micro_f1
++                model_savepath = "{}_best_f1_micro.pt".format(file_path)
++                torch.save(model.state_dict(), model_savepath)
++                best_vl_micro_f1s_epoch = epoch
++            if vl_macro_f1 > best_vl_macro_f1:
++                best_vl_macro_f1 = vl_macro_f1
++                model_savepath = "{}_best_f1_macro.pt".format(file_path)
++                torch.save(model.state_dict(), model_savepath)
++                best_vl_macro_f1s_epoch = epoch
++            if best_vl_loss > vl_loss:
++                best_vl_loss = vl_loss
++                model_savepath = "{}_best_loss.pt".format(file_path)
++                torch.save(model.state_dict(), model_savepath)
++                best_vl_loss_epoch = epoch
++            loss_info_list.append([
++                tr_loss, tr_macro_f1, tr_micro_f1, vl_loss, vl_macro_f1,
++                vl_micro_f1
++            ])
++            time_epoch = t2-t1
++            time_epochs.append(time_epoch)
++            print(
++                "Epoch {} ({}): tr_loss={:.7f} tr_macro_f1={:.4f} tr_micro_f1={:.4f} "
++                .format(epoch, task, tr_loss, tr_macro_f1, tr_micro_f1),
++                "vl_loss={:.7f} vl_macro_f1={:.4f} vl_micro_f1={:.4f} ({:.2f} sec.)"
++                .format(vl_loss, vl_macro_f1, vl_micro_f1, time_epoch))
++            if accelerator.is_local_main_process:
++                wandb.log({
++                        f"train/loss": tr_loss,
++                        f"train/macro_f1": tr_macro_f1,
++                        f"train/micro_f1": tr_micro_f1,
++                        f"valid/loss": vl_loss,
++                        f"valid/macro_f1": vl_macro_f1,
++                        f"valid/micro_f1": vl_micro_f1,
++                        f"train/time": time_epoch,
++                    }, step=epoch+1, commit=True)
++    if accelerator.is_local_main_process:
++        wandb.log({
++                f"train/avg_time": np.mean(time_epochs),
++                f"valid/best_micro_f1": best_vl_micro_f1,
++                f"valid/best_macro_f1": best_vl_macro_f1,
++                f"valid/best_loss": best_vl_loss,
++                f"valid/best_micro_f1_epoch": best_vl_micro_f1s_epoch,
++                f"valid/best_macro_f1_epoch": best_vl_macro_f1s_epoch,
++                f"valid/best_loss_epoch": best_vl_loss_epoch,
++            }, commit=True)
++                
++               
++# ======================= Test =======================
++    print("Test starts")
++    for f1_name in ["f1_macro", "f1_micro", "loss"]:
++        model_savepath = "{}_best_{}.pt".format(file_path, f1_name)
++        model.load_state_dict(torch.load(model_savepath, map_location=device))
++        model.eval()
++        if "popl" in task:
++            ts_pred_list = {}
++            ts_true_list = {}
++            ts_logits_list = {}
++        else:
++            ts_pred_list = []
++            ts_true_list = []
++            ts_logits_list = []
++        t1 = time()
++        # Test
++        for batch_idx, batch in enumerate(test_dataloader):
++            batch["data"] = batch["data"].to(device)
++            cls_indexes = torch.nonzero(
++                    batch["data"].T == tokenizer.cls_token_id)
++            if "popl" in task:
++                logits, = model(batch["data"].T, cls_indexes)
++                labels = batch["label"].T
++                filtered_logits = []
++                labels_1d = []
++                all_labels = []
++                for _, x in enumerate(logits):
++                    filtered_logits.append(x.expand(sum(labels[_]>-1), args.num_classes))
++                    labels_1d.extend(labels[_][labels[_]>-1])
++                    all_labels.append(labels[_][labels[_]>-1].cpu().detach().numpy())
++                filtered_logits = torch.cat(filtered_logits, dim=0).to(device)
++                labels_1d = torch.as_tensor(labels_1d).to(device)
++                all_preds = get_col_pred(logits, labels, batch["idx"], top_k=500)#.cpu().detach().numpy()
++                ts_pred_list.update(all_preds)
+                 
+-            if not args.eval_test:
+-                if vl_micro_f1 > best_vl_micro_f1:
+-                    best_vl_micro_f1 = vl_micro_f1
+-                    model_savepath = "{}_best_micro_f1.pt".format(tag_name)
+-                    torch.save(model.state_dict(), model_savepath)
+-
+-                if vl_macro_f1 > best_vl_macro_f1:
+-                    best_vl_macro_f1 = vl_macro_f1
+-                    model_savepath = "{}_best_macro_f1.pt".format(tag_name)
+-                    torch.save(model.state_dict(), model_savepath)
+-
+-                loss_info_list.append([
+-                    tr_loss, tr_macro_f1, tr_micro_f1, vl_loss, vl_macro_f1,
+-                    vl_micro_f1
+-                ])
+-                t2 = time()
+-                print(
+-                    "Epoch {} ({}): tr_loss={:.7f} tr_macro_f1={:.4f} tr_micro_f1={:.4f} "
+-                    .format(epoch, task, tr_loss, tr_macro_f1, tr_micro_f1),
+-                    "vl_loss={:.7f} vl_macro_f1={:.4f} vl_micro_f1={:.4f} ({:.2f} sec.)"
+-                    .format(vl_loss, vl_macro_f1, vl_micro_f1, (t2 - t1)))
+             else:
+-                if "popl" in task:
+-                    ts_pred_list = {}
+-                    ts_true_list = {}
+-                else:
+-                    ts_pred_list = []
+-                    ts_true_list = []
+-                # Test
+-                for batch_idx, batch in enumerate(test_dataloader):
+-                    batch["data"] = batch["data"].to(device)
+-                    cls_indexes = torch.nonzero(
+-                            batch["data"].T == tokenizer.cls_token_id)
+-                    if "popl" in task:
+-                        logits, = model(batch["data"].T, cls_indexes)
+-                        labels = batch["label"].T
+-                        filtered_logits = []
+-                        labels_1d = []
+-                        all_labels = []
+-                        for _, x in enumerate(logits):
+-                            filtered_logits.append(x.expand(sum(labels[_]>-1), args.num_classes))
+-                            labels_1d.extend(labels[_][labels[_]>-1])
+-                            all_labels.append(labels[_][labels[_]>-1].cpu().detach().numpy())
+-                        filtered_logits = torch.cat(filtered_logits, dim=0).to(device)
+-                        labels_1d = torch.as_tensor(labels_1d).to(device)
+-                        all_preds = get_col_pred(logits, labels, batch["idx"], top_k=500)#.cpu().detach().numpy()
+-                        ts_pred_list.update(all_preds)
+-                        
+-                    else:
+-                        logits, = model(batch["data"].T)
+-                        if len(logits.shape) == 2:
+-                            logits = logits.unsqueeze(0)
+-                        filtered_logits = torch.zeros(cls_indexes.shape[0],
+-                                                    logits.shape[2]).to(device)
+-                        for n in range(cls_indexes.shape[0]):
+-                            i, j = cls_indexes[n]
+-                            logit_n = logits[i, j, :]
+-                            filtered_logits[n] = logit_n
+-                        if "sato" in task or "gt-" in task:
+-                            if 'gt-' in task and '-all' in task:
+-                                labels = batch["label"].T
+-                                new_filtered_logits = []
+-                                for _, x in enumerate(filtered_logits):
+-                                    if labels[_] > -1:
+-                                        new_filtered_logits.append(x)
+-                                new_filtered_logits = torch.stack(new_filtered_logits, dim=0).to(device)
+-                                labels_1d = labels[labels > -1]
+-                                all_labels = labels[labels > -1].cpu().detach().numpy().tolist()
+-                                ts_pred_list += new_filtered_logits.argmax(
+-                                    1).cpu().detach().numpy().tolist()
+-                                ts_true_list += all_labels  
+-                                ts_prob_list += new_filtered_logits.cpu().detach().numpy().tolist()
+-                            else:
+-                                ts_pred_list += filtered_logits.argmax(
+-                                    1).cpu().detach().numpy().tolist()
+-                                ts_true_list += batch["label"].cpu().detach().numpy(
+-                                ).tolist()
+-                        elif "turl" in task:
+-                            if "turl-re" in task:  # turl-re-colpair
+-                                all_preds = (filtered_logits >= math.log(0.5)
+-                                            ).int().detach().cpu().numpy()
+-                                all_labels = batch["label"].cpu().detach().numpy()
+-                                idxes = np.where(all_labels > 0)[0]
+-                                ts_pred_list += all_preds[idxes, :].tolist()
+-                                ts_true_list += all_labels[idxes, :].tolist()
+-                            elif task == "turl":
+-                                ts_pred_list += (filtered_logits >= math.log(0.5)
+-                                                ).int().detach().cpu().tolist()
+-                                ts_true_list += batch["label"].cpu().detach(
+-                                ).numpy().tolist()
+-
++                logits = model(batch["data"].T).cpu()
++                if len(logits.shape) == 2:
++                    logits = logits.unsqueeze(0)
++                filtered_logits = torch.zeros(cls_indexes.shape[0],
++                                            logits.shape[2])
++                for n in range(cls_indexes.shape[0]):
++                    i, j = cls_indexes[n]
++                    logit_n = logits[i, j, :]
++                    filtered_logits[n] = logit_n
+                 if "sato" in task or "gt-" in task:
+-                    ts_micro_f1 = f1_score(ts_true_list,
+-                                        ts_pred_list,
+-                                        average="micro")
+-                    ts_macro_f1 = f1_score(ts_true_list,
+-                                        ts_pred_list,
+-                                        average="macro")
+-                    ts_class_f1 = f1_score(ts_true_list,
+-                                        ts_pred_list,
+-                                        average=None,
+-                                        labels=np.arange(args.num_classes))
+-                    ts_conf_mat = confusion_matrix(ts_true_list,
+-                                                ts_pred_list,
+-                                                labels=np.arange(args.num_classes))
+-                elif "col-popl" in task:
+-                    if epoch == num_train_epochs - 1:
+-                        ts_map, ts_rpr, ts_ndcg_10, ts_ndcg_20,  _ = test_evaluator.eval_one_run(ts_pred_list, "{}_trec_eval.json".format(tag_name))
++                    if 'gt-' in task and '-all' in task: # TODO
++                        labels = batch["label"].T.cpu()
++                        new_filtered_logits = [] 
++                        for _, x in enumerate(filtered_logits):
++                            if labels[_] > -1:
++                                new_filtered_logits.append(x)
++                        new_filtered_logits = torch.stack(new_filtered_logits, dim=0).to(device)
++                        labels_1d = labels[labels > -1]
++                        all_labels = labels[labels > -1].cpu().detach().numpy().tolist()
++                        ts_pred_list += new_filtered_logits.argmax(
++                            1).cpu().detach().numpy().tolist()
++                        ts_true_list += all_labels  
++                        ts_logits_list += new_filtered_logits.cpu().detach().numpy().tolist()
+                     else:
+-                        ts_map, ts_rpr, ts_ndcg_10, ts_ndcg_20,  _ = test_evaluator.eval_one_run(ts_pred_list)
++                        ts_pred_list += filtered_logits.argmax(
++                            1).cpu().detach().numpy().tolist()
++                        ts_true_list += batch["label"].cpu().detach().numpy(
++                        ).tolist()
++                        ts_logits_list += filtered_logits.cpu().detach().numpy().tolist()
+                 elif "turl" in task:
+-                    ts_micro_f1, ts_macro_f1, ts_class_f1, ts_conf_mat = f1_score_multilabel(
+-                        ts_true_list, ts_pred_list)
+-
+-                t2 = time()
+-                if "popl" in task:
+-                    if vl_map >= best_vl_micro_f1:
+-                        best_vl_micro_f1 = vl_map
+-                        best_vl_micro_f1s_epoch = epoch
+-                    loss_info_list.append([
+-                        tr_loss, vl_loss, vl_map, vl_rpr, vl_ndcg_10, vl_ndcg_20, 
+-                        ts_map, ts_rpr, ts_ndcg_10, ts_ndcg_20, 
+-                        best_vl_micro_f1s_epoch
+-                    ])
+-                    
+-                    print(
+-                        "Epoch {} ({}): tr_loss={:.7f}" 
+-                        .format(epoch, task, tr_loss),
+-                        "vl_loss={:.7f} vl_map={:.4f} vl_rpr={:.4f} vl_ndcg_10={:.4f} vl_ndcg_20={:.4f}"
+-                        .format(vl_loss, vl_map, vl_rpr, vl_ndcg_10, vl_ndcg_20),
+-                        "ts_map={:.4f} ts_rpr={:.4f} ts_ndcg_10={:.4f} ts_ndcg_20={:.4f} ({:.2f} sec.)"
+-                        .format(ts_map, ts_rpr, ts_ndcg_10, ts_ndcg_20,  t2-t1))
+-
+-                    metrics_dict = {'epoch': epoch, 'tr_loss':tr_loss, 
+-                        'vl_loss':vl_loss, 'vl_map': vl_map, 'vl_rpr': vl_rpr, 'vl_ndcg_10': vl_ndcg_10, 'vl_ndcg_20': vl_ndcg_20,
+-                        'ts_map':ts_map, 'ts_rpr': ts_rpr, 'ts_ndcg_10': ts_ndcg_10, 'ts_ndcg_20':ts_ndcg_20,
+-                        'time': t2-t1
+-                    }
+-                    mlflow.log_metrics(metrics_dict)
+-                    eval_dict.append(metrics_dict)
+-                else:
+-                    if vl_micro_f1 >= best_vl_micro_f1:
+-                        best_vl_micro_f1 = vl_micro_f1
+-                        best_vl_micro_f1s_epoch = epoch
+-                    if vl_macro_f1 >= best_vl_macro_f1:
+-                        best_vl_macro_f1 = vl_macro_f1
+-                        best_vl_macro_f1s_epoch = epoch
+-                    loss_info_list.append([
+-                        tr_loss, tr_macro_f1, tr_micro_f1, vl_loss, vl_macro_f1,
+-                        vl_micro_f1, ts_macro_f1, ts_micro_f1,
+-                        best_vl_macro_f1s_epoch, best_vl_micro_f1s_epoch
+-                    ])
+-                    
+-                    print(
+-                        "Epoch {} ({}): tr_loss={:.7f} tr_macro_f1={:.4f} tr_micro_f1={:.4f}"
+-                        .format(epoch, task, tr_loss, tr_macro_f1, tr_micro_f1),
+-                        "vl_loss={:.7f} vl_macro_f1={:.4f} vl_micro_f1={:.4f}"
+-                        .format(vl_loss, vl_macro_f1, vl_micro_f1, (t2 - t1)),
+-                        "ts_macro_f1={:.4f} ts_micro_f1={:.4f} ({:.2f} sec.)"
+-                        .format(ts_macro_f1, ts_micro_f1, t2-t1))
+-
+-                    metrics_dict = {'epoch': epoch, 'tr_loss':tr_loss, 'tr_macro_f1':tr_macro_f1, 'tr_micro_f1': tr_micro_f1,
+-                        'vl_loss':vl_loss, 'vl_macro_f1':vl_macro_f1, 'vl_micro_f1':vl_micro_f1, #'vl_class_f1':vl_class_f1,
+-                        'ts_macro_f1':ts_macro_f1, 'ts_micro_f1':ts_micro_f1, #'ts_class_f1':ts_class_f1, 'ts_conf_mat':ts_conf_mat,
+-                        'time': t2-t1
+-                    }
+-                    mlflow.log_metrics(metrics_dict)
+-                    eval_dict.append(metrics_dict)
+-                    if type(ts_class_f1) != list:
+-                        ts_class_f1 = ts_class_f1.tolist()
+-                    eval_dict[epoch]["ts_class_f1"] = ts_class_f1
+-                    if type(ts_conf_mat) != list:
+-                        ts_conf_mat = ts_conf_mat.tolist()
+-                    eval_dict[epoch]["confusion_matrix"] = ts_conf_mat
++                    if "turl-re" in task:  # turl-re-colpair
++                        all_preds = (filtered_logits >= math.log(0.5)
++                                    ).int().detach().cpu().numpy()
++                        all_labels = batch["label"].cpu().detach().numpy()
++                        idxes = np.where(all_labels > 0)[0]
++                        ts_pred_list += all_preds[idxes, :].tolist()
++                        ts_true_list += all_labels[idxes, :].tolist()
++                    elif task == "turl":
++                        ts_pred_list += (filtered_logits >= math.log(0.5)
++                                        ).int().detach().cpu().tolist()
++                        ts_true_list += batch["label"].cpu().detach(
++                        ).numpy().tolist()
++        t2 = time()
++        if "sato" in task or "gt-" in task:
++            ts_micro_f1 = f1_score(ts_true_list,
++                                ts_pred_list,
++                                average="micro")
++            ts_macro_f1 = f1_score(ts_true_list,
++                                ts_pred_list,
++                                average="macro")
++            ts_class_f1 = f1_score(ts_true_list,
++                                ts_pred_list,
++                                average=None,
++                                labels=np.arange(args.num_classes))
++            ts_conf_mat = confusion_matrix(ts_true_list,
++                                        ts_pred_list,
++                                        labels=np.arange(args.num_classes))
++        elif "col-popl" in task:
++            if epoch == num_train_epochs - 1:
++                ts_map, ts_rpr, ts_ndcg_10, ts_ndcg_20,  _ = test_evaluator.eval_one_run(ts_pred_list, "{}_trec_eval.json".format(tag_name))
++            else:
++                ts_map, ts_rpr, ts_ndcg_10, ts_ndcg_20,  _ = test_evaluator.eval_one_run(ts_pred_list)
++        elif "turl" in task:
++            ts_micro_f1, ts_macro_f1, ts_class_f1, ts_conf_mat = f1_score_multilabel(
++                ts_true_list, ts_pred_list)
++
++        if accelerator.is_local_main_process:
++            wandb.log({
++                f"test/{f1_name}:micro_f1": ts_micro_f1,
++                f"test/{f1_name}:macro_f1": ts_macro_f1,
++                f"test/{f1_name}:time": t2-t1,
++            })
+             
+ 
+-    with accelerator.main_process_first():
+-        if args.eval_test:
+-            if "popl" in task:
+-                loss_info_df = pd.DataFrame(loss_info_list,
+-                                            columns=[
+-                                                "tr_loss", "vl_loss",
+-                                                "vl_map", "vl_rpr", "vl_ndcg_10", "vl_ndcg_20", 
+-                                                "ts_map", "ts_rpr", "ts_ndcg_10", "ts_ndcg_20",
+-                                                "best_vl_map_epoch"
+-                                            ])
+-            else:
+-                loss_info_df = pd.DataFrame(loss_info_list,
+-                                            columns=[
+-                                                "tr_loss", "tr_f1_macro_f1",
+-                                                "tr_f1_micro_f1", "vl_loss",
+-                                                "vl_f1_macro_f1", "vl_f1_micro_f1",
+-                                                "ts_macro_f1", "ts_micro_f1",
+-                                                "best_vl_macro_f1_epoch", "best_vl_micro_f1_epoch"
+-                                            ])
+-            loss_info_df.to_csv("{}_loss_info.csv".format(tag_name))
+-            output_filepath = "{}_eval.json".format(tag_name)
+-            with open(output_filepath, "w") as fout:
+-                json.dump(eval_dict, fout)
++        eval_dict[f1_name]["ts_micro_f1"] = ts_micro_f1
++        eval_dict[f1_name]["ts_macro_f1"] = ts_macro_f1
++        if type(ts_class_f1) != list:
++            ts_class_f1 = ts_class_f1.tolist()    
++        eval_dict[f1_name]["ts_class_f1"] = ts_class_f1
++        if type(ts_conf_mat) != list:
++            ts_conf_mat = ts_conf_mat.tolist()    
++        eval_dict[f1_name]["ts_conf_mat"] = ts_conf_mat
++        eval_dict[f1_name]["true_list"] = ts_true_list
++        eval_dict[f1_name]["pred_list"] = ts_pred_list
++        eval_dict[f1_name]["logits_list"] = ts_logits_list
++    output_filepath = "{}_eval.json".format(file_path)
++    with open(output_filepath, "w") as fout:
++        json.dump(eval_dict, fout)
++
++    if accelerator.is_local_main_process:
++        wandb.finish()
++    # with accelerator.main_process_first():
++    #     if args.eval_test:
++    #         if "popl" in task:
++    #             loss_info_df = pd.DataFrame(loss_info_list,
++    #                                         columns=[
++    #                                             "tr_loss", "vl_loss",
++    #                                             "vl_map", "vl_rpr", "vl_ndcg_10", "vl_ndcg_20", 
++    #                                             "ts_map", "ts_rpr", "ts_ndcg_10", "ts_ndcg_20",
++    #                                             "best_vl_map_epoch"
++    #                                         ])
++    #         else:
++    #             loss_info_df = pd.DataFrame(loss_info_list,
++    #                                         columns=[
++    #                                             "tr_loss", "tr_f1_macro_f1",
++    #                                             "tr_f1_micro_f1", "vl_loss",
++    #                                             "vl_f1_macro_f1", "vl_f1_micro_f1",
++    #                                             "ts_macro_f1", "ts_micro_f1",
++    #                                             "best_vl_macro_f1_epoch", "best_vl_micro_f1_epoch"
++    #                                         ])
++    #         loss_info_df.to_csv("{}_loss_info.csv".format(tag_name))
++
+ 
+-        else:
+-            loss_info_df = pd.DataFrame(loss_info_list,
+-                                        columns=[
+-                                            "tr_loss", "tr_f1_macro_f1",
+-                                            "tr_f1_micro_f1", "vl_loss",
+-                                            "vl_f1_macro_f1", "vl_f1_micro_f1"
+-                                        ])
+-            loss_info_df.to_csv("{}_loss_info.csv".format(tag_name))
+diff --git a/supcl_train.py b/supcl_train.py
+index d6d6972..a885f63 100644
+--- a/supcl_train.py
++++ b/supcl_train.py
+@@ -20,6 +20,7 @@ from accelerate import DistributedDataParallelKwargs
+ 
+ from watchog.dataset import TableDataset, SupCLTableDataset
+ from watchog.model import SupCLforTable, UnsupCLforTable, SupclLoss
++import wandb
+ 
+ def train_step(train_iter, model, optimizer, scheduler, accelerator, criterion, hp):
+     """Perform a single training step
+@@ -95,7 +96,12 @@ def train_step(train_iter, model, optimizer, scheduler, accelerator, criterion,
+ 
+ 
+ def train(accelerator, trainset, hp, validset=None):
+-
++    if accelerator.is_local_main_process:
++        wandb.init(config=hp,
++            project="TableUnderstanding",
++            name=f"{hp.model}_Pretrain_DS@{hp.pretrain_data}_mode@{hp.mode}_size@{hp.size}",
++            group="TU",
++            )
+     # initialize model, optimizer, and LR scheduler
+     device = accelerator.device
+     if hp.mode in ['simclr']:
+@@ -134,7 +140,7 @@ def train(accelerator, trainset, hp, validset=None):
+         directory = os.path.join(hp.logdir, hp.pretrain_data, hp.mode)
+         if not os.path.exists(directory):
+             os.makedirs(directory)
+-
++    time_epochs = []
+     for epoch in range(1, hp.n_epochs+1):
+         # train
+         accelerator.print("Epoch {} starts.".format(epoch))
+@@ -158,17 +164,31 @@ def train(accelerator, trainset, hp, validset=None):
+             accelerator.save(ckpt, ckpt_path)
+ 
+         end_time = time.time()
++        time_epoch = end_time - start_time
++        time_epochs.append(time_epoch)
+         accelerator.print("Epoch {} training ends, took {} secs.".format(epoch, end_time - start_time))
+         accelerator.print("   Training loss=%f"  %train_loss)
+-        
++        if accelerator.is_local_main_process:
++            wandb.log({
++                    f"train/loss": train_loss,
++                    f"train/time": time_epoch,
++                }, step=epoch, commit=True)
++    if accelerator.is_local_main_process:
++        avg_train_time = sum(time_epochs) / len(time_epochs)
++        wandb.log({
++            f"train/avg_time": avg_train_time,
++            "ckpt_path": ckpt_path,
++        }, commit=True)
++        wandb.finish()
+     
+ if __name__ == '__main__':
+     parser = argparse.ArgumentParser()
++    parser.add_argument("--model", type=str, default="Watchog") # simclr for original CL, supcon for CL using metadata
+     parser.add_argument("--pretrain_data", type=str, default="wikitables") # dataset for pretraining
+     parser.add_argument("--pretrained_model_path", type=str, default="") # pretrained checkpoint 
+-    parser.add_argument("--data_path",type=str, default="./data/doduo")
++    parser.add_argument("--data_path",type=str, default="/data/zhihao/TU/TURL/")
+     parser.add_argument("--mode", type=str, default="simclr") # simclr for original CL, supcon for CL using metadata
+-    parser.add_argument("--logdir", type=str, default="results/") # directory to store model checkpoints
++    parser.add_argument("--logdir", type=str, default="/data/zhihao/TU/Watchog/model/") # directory to store model checkpoints
+     parser.add_argument("--run_id", type=int, default=0)
+     parser.add_argument("--batch_size", type=int, default=32)
+     parser.add_argument("--max_len", type=int, default=128)
+@@ -177,16 +197,18 @@ if __name__ == '__main__':
+     parser.add_argument("--n_epochs", type=int, default=20)
+     parser.add_argument("--lm", type=str, default='bert-base-uncased')
+     parser.add_argument("--projector", type=int, default=768)
+-    parser.add_argument("--augment_op", type=str, default='sample_row,sample_row')
++    parser.add_argument("--augment_op", type=str, default='sample_row4,sample_row4')
+     parser.add_argument("--table_order", type=str, default='column')
+-    parser.add_argument("--sample_meth", type=str, default='head')
++    parser.add_argument("--sample_meth", type=str, default='tfidf_entity')
+     parser.add_argument("--temperature", type=float, default=0.05)
+     parser.add_argument("--save_model", type=int, default=5)
+-    parser.add_argument("--fp16", dest="fp16", action="store_true")
++    parser.add_argument("--fp16", dest="fp16", default=True, action="store_true")
+     parser.add_argument("--gpus", type=str, default="0")
+-    
++    parser.add_argument("--single_column", default=False)
+     
+     hp = parser.parse_args()
++    if hp.size == -1:
++        hp.size = None
+     # set seed
+     seed = hp.run_id
+     random.seed(seed)
+diff --git a/watchog/dataset.py b/watchog/dataset.py
+index 76095ca..e3b7081 100644
+--- a/watchog/dataset.py
++++ b/watchog/dataset.py
+@@ -236,7 +236,7 @@ class TableDataset(data.Dataset):
+             Dictionary: a map from column names to the position of corresponding special tokens
+         """
+         res = []
+-        max_tokens = self.max_len * 2 // len(table.columns)
++        max_tokens = self.max_len * 2 // len(table.columns) # max tokens per column
+         budget = max(1, self.max_len // len(table.columns) - 1)
+         tfidfDict = computeTfIdf(table) if "tfidf" in self.sample_meth else None # from preprocessor.py
+ 
+@@ -246,7 +246,7 @@ class TableDataset(data.Dataset):
+         # column-ordered preprocessing
+         if self.table_order == 'column':
+             if 'row' in self.sample_meth: 
+-                table = tfidfRowSample(table, tfidfDict, max_tokens)
++                table = tfidfRowSample(table, tfidfDict, max_tokens) # TODO
+             for column in table.columns:
+                 tokens = preprocess(table[column], tfidfDict, max_tokens, self.sample_meth) # from preprocessor.py
+                 col_text = self.tokenizer.cls_token + " " + \
+@@ -337,7 +337,7 @@ class TableDataset(data.Dataset):
+         cls_indices = []
+         for col in mp_ori:
+             if col in mp_aug:
+-                cls_indices.append((mp_ori[col], mp_aug[col]))
++                cls_indices.append((mp_ori[col], mp_aug[col])) 
+ 
+         return x_ori, x_aug, cls_indices
+ 
+@@ -1531,31 +1531,41 @@ class GittablesTablewiseDataset(data.Dataset):
+ 
+     def __init__(
+             self,
++            cv: int,
+             split: str,
+             src: str,  # train or test
+             tokenizer: AutoTokenizer,
+             max_length: int = 256,
+             gt_only: bool = False,
+             device: torch.device = None,
+-            base_dirpath: str = "./data/gittables",
+-            base_tag: str = '',
+-            small_tag: str = ""):
++            base_dirpath: str = "/data/zhihao/TU/GitTables/semtab_gittables/2022",
++            base_tag: str = '', # blank, comma
++            small_tag: str = "",
++            train_ratio: float = 1.0):
+         if device is None:
+             device = torch.device('cpu')
+-
++        basename = small_tag+ "_cv_{}.csv"
+     
+-        if gt_only:
+-            basename = "{}{}_{}_all_gt.csv"
++        if split in ["train", "valid"]:
++            df_list = []
++            for i in range(5):
++                if i == cv:
++                    continue
++                filepath = os.path.join(base_dirpath, basename.format(i))
++                df_list.append(pd.read_csv(filepath))
++                print(split, i)
++            df = pd.concat(df_list, axis=0)
+         else:
+-            basename = "{}{}_{}_all.csv"
++            # test
++            filepath = os.path.join(base_dirpath, basename.format(cv))
++            df = pd.read_csv(filepath)
++            print(split)
++
+ 
+-        filepath = os.path.join(base_dirpath, basename.format(src, base_tag, split))
+-    
+-        df = pd.read_csv(filepath)
+         if gt_only:
+             df = df[df["class_id"] > -1]
+         
+-        num_tables = len(df.groupby("table_id"))
++
+         
+         data_list = []
+         
+@@ -1563,10 +1573,18 @@ class GittablesTablewiseDataset(data.Dataset):
+         df.drop(df[(df['data'].isna()) & (df['class_id'] == -1)].index, inplace=True)
+         df['col_idx'] = df['col_idx'].astype(int)
+         df['data'] = df['data'].astype(str)
++        
++        num_tables = len(df.groupby("table_id"))
++        valid_index = int(num_tables * 0.8)
++        num_train = int(train_ratio * num_tables * 0.8)        
++        
+         # df.drop(df[(df['data'] == '') & (df['class_id'] == -1)].index, inplace=True)
+         total_num_cols = 0
+         for i, (index, group_df) in enumerate(df.groupby("table_id")):
+-            # if len(data_list) > 10:
++            if (split == "train") and ((i >= num_train) or (i >= valid_index)):
++                break
++            if split == "valid" and i < valid_index:
++                continue
+             #     break
+             labeled_columns = group_df[group_df['class_id'] > -1]
+             unlabeled_columns = group_df[group_df['class_id'] == -1]
+@@ -1596,7 +1614,7 @@ class GittablesTablewiseDataset(data.Dataset):
+             data_list.append(
+                 [index,
+                  len(group_df), token_ids, class_ids, cls_indexes])
+-        print(src, len(data_list))
++        print(split, len(data_list))
+         self.table_df = pd.DataFrame(data_list,
+                                      columns=[
+                                          "table_id", "num_col", "data_tensor",
+@@ -1627,8 +1645,8 @@ class GittablesCVTablewiseDataset(data.Dataset):
+     def __init__(
+             self,
+             cv: int,
+-            split: str,
+-            src: str,  # train or test
++            split: str, # Train/valid
++            src: str,  # 'dbpedia_property'
+             tokenizer: AutoTokenizer,
+             max_length: int = 256,
+             gt_only: bool = False,
+@@ -1660,7 +1678,7 @@ class GittablesCVTablewiseDataset(data.Dataset):
+             unlabeled_columns = group_df[group_df['class_id'] == -1]
+             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns.sample(min(10-len(labeled_columns), len(unlabeled_columns)))])
+             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(10-len(labeled_columns), 0), len(unlabeled_columns))]])
+-            group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(8-len(labeled_columns), 0), len(unlabeled_columns))]])
++            group_df = pd.concat([labeled_columns, unlabeled_columns[0:min(max(8-len(labeled_columns), 0), len(unlabeled_columns))]]) # TODO
+             group_df.sort_values(by=['col_idx'], inplace=True)
+ 
+             if max_length <= 128:
+@@ -1685,7 +1703,7 @@ class GittablesCVTablewiseDataset(data.Dataset):
+             data_list.append(
+                 [index,
+                  len(group_df), token_ids, class_ids, cls_indexes])
+-        print(src, len(data_list))
++        print(split, len(data_list))
+         self.table_df = pd.DataFrame(data_list,
+                                      columns=[
+                                          "table_id", "num_col", "data_tensor",
+diff --git a/watchog/model.py b/watchog/model.py
+index 5d9a5d6..a47f723 100644
+--- a/watchog/model.py
++++ b/watchog/model.py
+@@ -410,6 +410,25 @@ class SupclLoss(nn.Module):
+ 
+         return supervised_contrastive_loss
+ 
++class BertMultiPooler(nn.Module):
++
++    def __init__(self, hidden_size):
++        super().__init__()
++        self.dense = nn.Linear(hidden_size, hidden_size)
++        self.activation = nn.Tanh()
++
++    def forward(self, hidden_states):
++        # We "pool" the model by simply taking the hidden state corresponding
++        # to the first token.
++        #token_tensor = torch.index_select(hidden_states, 1,
++        #                                  cls_indexes)
++        # Apply
++        #pooled_outputs = self.dense(token_tensor)
++        pooled_outputs = self.dense(hidden_states)
++        pooled_outputs = self.activation(pooled_outputs)
++        return pooled_outputs
++
++
+ class BertMultiPairPooler(nn.Module):
+ 
+     def __init__(self, config):
+@@ -447,9 +466,11 @@ class BertForMultiOutputClassification(nn.Module):
+         hidden_size = 768
+ 
+         # projector
++        self.pooler = BertMultiPooler(hidden_size)
+         self.projector = nn.Linear(hidden_size, hp.projector)
+         '''Require all models using the same CLS token'''
+-        self.cls_token_id = AutoTokenizer.from_pretrained(lm_mp['roberta']).cls_token_id
++        # self.cls_token_id = AutoTokenizer.from_pretrained(lm_mp['roberta']).cls_token_id
++        self.cls_token_id = AutoTokenizer.from_pretrained(lm_mp[lm]).cls_token_id
+         self.num_labels = hp.num_labels
+         self.dropout = nn.Dropout(hp.hidden_dropout_prob)
+         self.classifier = nn.Linear(hidden_size, self.hp.num_labels)
+@@ -468,7 +489,7 @@ class BertForMultiOutputClassification(nn.Module):
+         # BertModelMultiOutput
+         bert_output = self.bert(input_ids)
+         # Note: returned tensor contains pooled_output of all tokens (to make the tensor size consistent)
+-        pooled_output = bert_output[0]
++        pooled_output = self.pooler(bert_output[0]).squeeze(0)
+         pooled_output = self.dropout(pooled_output)
+         logits = self.classifier(pooled_output)
+ 

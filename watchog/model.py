@@ -410,6 +410,82 @@ class SupclLoss(nn.Module):
 
         return supervised_contrastive_loss
 
+def pool_sub_sentences(hidden_states, cls_indexes, table_length=None):
+    pooled_outputs = []
+    B = hidden_states.size(0)
+    
+    for i in range(B):
+        cls_indices = cls_indexes[cls_indexes[:,0]==i]
+        sub_sentences = []
+        max_length = table_length[i] if table_length is not None else hidden_states.size(1)
+        # Extract sub-sentence embeddings based on CLS tokens
+        for j in range(len(cls_indices)):
+            start_idx = cls_indices[j][1].item()
+            end_idx = cls_indices[j+1][1].item() if j+1 < len(cls_indices) else max_length
+            
+            # Pooling (e.g., mean pooling) the tokens in the sub-sentence
+            sub_sentence_embedding = hidden_states[i, start_idx:end_idx, :].mean(dim=0)
+            sub_sentences.append(sub_sentence_embedding)
+        
+        pooled_outputs.append(torch.stack(sub_sentences))
+    pooled_outputs = torch.cat(pooled_outputs, dim=0)
+    return pooled_outputs
+
+# Function to extract CLS token embeddings for each sub-sentence
+def extract_cls_tokens(hidden_states, cls_indexes, head=False):
+    cls_embeddings = []
+    for i, j in cls_indexes:
+        sub_sentence_cls_embeddings = hidden_states[i, 0, :] if head else hidden_states[i, j, :]
+        cls_embeddings.append(sub_sentence_cls_embeddings)
+    cls_embeddings = torch.stack(cls_embeddings)
+    return cls_embeddings
+
+class BertMultiPooler(nn.Module):
+
+    def __init__(self, hidden_size, version='v0'):
+        super().__init__()
+        self.version = "v0"
+        self.dense = nn.Linear(hidden_size, hidden_size)
+        self.dense_tab = nn.Linear(hidden_size, hidden_size)
+        self.activation = nn.Tanh()
+
+    def forward(self, hidden_states, pooler_output=None, cls_indexes=None, table_length=None):
+        # We "pool" the model by simply taking the hidden state corresponding
+        # to the first token.
+        #token_tensor = torch.index_select(hidden_states, 1,
+        #                                  cls_indexes)
+        # Apply
+        #pooled_outputs = self.dense(token_tensor)
+        if self.version == "v0":
+            pooled_outputs = extract_cls_tokens(hidden_states, cls_indexes)
+            pooled_outputs = self.dense(pooled_outputs)
+        elif self.version == "v1":
+            pooled_outputs = pool_sub_sentences(hidden_states, cls_indexes, table_length)
+            pooled_outputs = self.dense(pooled_outputs)
+        elif self.version == "v1.1": # TODO: project before pooling
+            hidden_states = self.dense(hidden_states)
+            pooled_outputs = pool_sub_sentences(hidden_states, cls_indexes, table_length)
+        elif self.version == "v2":
+            pooled_outputs = pool_sub_sentences(hidden_states, cls_indexes, table_length)
+            pooled_outputs = self.dense(pooled_outputs)
+            tab_outputs = extract_cls_tokens(hidden_states, cls_indexes)
+            pooled_outputs = pooled_outputs + self.dense_tab(tab_outputs)
+        elif self.version == "v3": # tab token is the first
+            pooled_outputs = pool_sub_sentences(hidden_states, cls_indexes, table_length)
+            pooled_outputs = self.dense(pooled_outputs)
+            tab_outputs = extract_cls_tokens(hidden_states, cls_indexes, head=True)
+            pooled_outputs = pooled_outputs + self.dense_tab(tab_outputs)
+        elif self.version == "v4": # use Bert pooler_output as tab token
+            pooled_outputs = pool_sub_sentences(hidden_states, cls_indexes, table_length)
+            pooled_outputs = self.dense(pooled_outputs)
+            tab_outputs = pooler_output[cls_indexes[:,0]] # (B, hidden_size)
+            pooled_outputs = pooled_outputs + self.dense_tab(tab_outputs)
+        else:
+            raise ValueError(f"Invalid version: {self.version}")
+        pooled_outputs = self.activation(pooled_outputs)
+        return pooled_outputs
+
+
 class BertMultiPairPooler(nn.Module):
 
     def __init__(self, config):
@@ -437,19 +513,22 @@ class BertMultiPairPooler(nn.Module):
 
 class BertForMultiOutputClassification(nn.Module):
 
-    def __init__(self, hp, device='cuda', lm='roberta', col_pair='None'):
+    def __init__(self, hp, device='cuda', lm='roberta', col_pair='None', version='v0'):
         
         super().__init__()
         self.hp = hp
         self.bert = AutoModel.from_pretrained(lm_mp[lm])
         self.device = device
         self.col_pair = col_pair
+        self.version = version
         hidden_size = 768
 
         # projector
+        self.pooler = BertMultiPooler(hidden_size, version=version)
         self.projector = nn.Linear(hidden_size, hp.projector)
         '''Require all models using the same CLS token'''
-        self.cls_token_id = AutoTokenizer.from_pretrained(lm_mp['roberta']).cls_token_id
+        # self.cls_token_id = AutoTokenizer.from_pretrained(lm_mp['roberta']).cls_token_id
+        self.cls_token_id = AutoTokenizer.from_pretrained(lm_mp[lm]).cls_token_id
         self.num_labels = hp.num_labels
         self.dropout = nn.Dropout(hp.hidden_dropout_prob)
         self.classifier = nn.Linear(hidden_size, self.hp.num_labels)
@@ -463,12 +542,14 @@ class BertForMultiOutputClassification(nn.Module):
     def forward(
         self,
         input_ids=None,
-        get_enc=False
+        get_enc=False,
+        cls_indexes=None,
     ):
         # BertModelMultiOutput
         bert_output = self.bert(input_ids)
+        table_length = [len(input_ids[i].nonzero()) for i in range(len(input_ids))]
         # Note: returned tensor contains pooled_output of all tokens (to make the tensor size consistent)
-        pooled_output = bert_output[0]
+        pooled_output = self.pooler(bert_output[0], pooler_output=bert_output[1], cls_indexes=cls_indexes, table_length=table_length).squeeze(0)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
 

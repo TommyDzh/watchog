@@ -1,0 +1,6 @@
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/optimization.py:429: FutureWarning: This implementation of AdamW is deprecated and will be removed in a future version. Use the PyTorch implementation torch.optim.AdamW instead, or set `no_deprecation_warning=True` to disable this warning
+  warnings.warn(
+Traceback (most recent call last):
+  File "supcl_ft.py", line 572, in <module>
+    raise ValueError("task name must be either sato or turl.")
+ValueError: task name must be either sato or turl.

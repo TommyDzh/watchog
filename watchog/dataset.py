@@ -236,7 +236,7 @@ class TableDataset(data.Dataset):
             Dictionary: a map from column names to the position of corresponding special tokens
         """
         res = []
-        max_tokens = self.max_len * 2 // len(table.columns)
+        max_tokens = self.max_len * 2 // len(table.columns) # max tokens per column
         budget = max(1, self.max_len // len(table.columns) - 1)
         tfidfDict = computeTfIdf(table) if "tfidf" in self.sample_meth else None # from preprocessor.py
 
@@ -246,7 +246,7 @@ class TableDataset(data.Dataset):
         # column-ordered preprocessing
         if self.table_order == 'column':
             if 'row' in self.sample_meth: 
-                table = tfidfRowSample(table, tfidfDict, max_tokens)
+                table = tfidfRowSample(table, tfidfDict, max_tokens) # TODO
             for column in table.columns:
                 tokens = preprocess(table[column], tfidfDict, max_tokens, self.sample_meth) # from preprocessor.py
                 col_text = self.tokenizer.cls_token + " " + \
@@ -337,7 +337,7 @@ class TableDataset(data.Dataset):
         cls_indices = []
         for col in mp_ori:
             if col in mp_aug:
-                cls_indices.append((mp_ori[col], mp_aug[col]))
+                cls_indices.append((mp_ori[col], mp_aug[col])) 
 
         return x_ori, x_aug, cls_indices
 
@@ -1531,31 +1531,42 @@ class GittablesTablewiseDataset(data.Dataset):
 
     def __init__(
             self,
+            cv: int,
             split: str,
             src: str,  # train or test
             tokenizer: AutoTokenizer,
             max_length: int = 256,
             gt_only: bool = False,
             device: torch.device = None,
-            base_dirpath: str = "./data/gittables",
-            base_tag: str = '',
-            small_tag: str = ""):
+            base_dirpath: str = "/data/zhihao/TU/GitTables/semtab_gittables/2022",
+            base_tag: str = '', # blank, comma
+            small_tag: str = "",
+            train_ratio: float = 1.0,
+            max_unlabeled=4):
         if device is None:
             device = torch.device('cpu')
-
+        basename = small_tag+ "_cv_{}.csv"
     
-        if gt_only:
-            basename = "{}{}_{}_all_gt.csv"
+        if split in ["train", "valid"]:
+            df_list = []
+            for i in range(5):
+                if i == cv:
+                    continue
+                filepath = os.path.join(base_dirpath, basename.format(i))
+                df_list.append(pd.read_csv(filepath))
+                print(split, i)
+            df = pd.concat(df_list, axis=0)
         else:
-            basename = "{}{}_{}_all.csv"
+            # test
+            filepath = os.path.join(base_dirpath, basename.format(cv))
+            df = pd.read_csv(filepath)
+            print(split)
 
-        filepath = os.path.join(base_dirpath, basename.format(src, base_tag, split))
-    
-        df = pd.read_csv(filepath)
+
         if gt_only:
             df = df[df["class_id"] > -1]
         
-        num_tables = len(df.groupby("table_id"))
+
         
         data_list = []
         
@@ -1563,16 +1574,24 @@ class GittablesTablewiseDataset(data.Dataset):
         df.drop(df[(df['data'].isna()) & (df['class_id'] == -1)].index, inplace=True)
         df['col_idx'] = df['col_idx'].astype(int)
         df['data'] = df['data'].astype(str)
+        
+        num_tables = len(df.groupby("table_id"))
+        valid_index = int(num_tables * 0.8)
+        num_train = int(train_ratio * num_tables * 0.8)        
+        
         # df.drop(df[(df['data'] == '') & (df['class_id'] == -1)].index, inplace=True)
         total_num_cols = 0
         for i, (index, group_df) in enumerate(df.groupby("table_id")):
-            # if len(data_list) > 10:
+            if (split == "train") and ((i >= num_train) or (i >= valid_index)):
+                break
+            if split == "valid" and i < valid_index:
+                continue
             #     break
             labeled_columns = group_df[group_df['class_id'] > -1]
             unlabeled_columns = group_df[group_df['class_id'] == -1]
             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns.sample(min(10-len(labeled_columns), len(unlabeled_columns)))])
             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(10-len(labeled_columns), 0), len(unlabeled_columns))]])
-            group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(8-len(labeled_columns), 0), len(unlabeled_columns))]])
+            group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(max_unlabeled-len(labeled_columns), 0), len(unlabeled_columns))]])
             group_df.sort_values(by=['col_idx'], inplace=True)
 
             if max_length <= 128:
@@ -1596,7 +1615,7 @@ class GittablesTablewiseDataset(data.Dataset):
             data_list.append(
                 [index,
                  len(group_df), token_ids, class_ids, cls_indexes])
-        print(src, len(data_list))
+        print(split, len(data_list))
         self.table_df = pd.DataFrame(data_list,
                                      columns=[
                                          "table_id", "num_col", "data_tensor",
@@ -1627,8 +1646,8 @@ class GittablesCVTablewiseDataset(data.Dataset):
     def __init__(
             self,
             cv: int,
-            split: str,
-            src: str,  # train or test
+            split: str, # Train/valid
+            src: str,  # 'dbpedia_property'
             tokenizer: AutoTokenizer,
             max_length: int = 256,
             gt_only: bool = False,
@@ -1660,7 +1679,7 @@ class GittablesCVTablewiseDataset(data.Dataset):
             unlabeled_columns = group_df[group_df['class_id'] == -1]
             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns.sample(min(10-len(labeled_columns), len(unlabeled_columns)))])
             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(10-len(labeled_columns), 0), len(unlabeled_columns))]])
-            group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(8-len(labeled_columns), 0), len(unlabeled_columns))]])
+            group_df = pd.concat([labeled_columns, unlabeled_columns[0:min(max(8-len(labeled_columns), 0), len(unlabeled_columns))]]) # TODO
             group_df.sort_values(by=['col_idx'], inplace=True)
 
             if max_length <= 128:
@@ -1685,7 +1704,7 @@ class GittablesCVTablewiseDataset(data.Dataset):
             data_list.append(
                 [index,
                  len(group_df), token_ids, class_ids, cls_indexes])
-        print(src, len(data_list))
+        print(split, len(data_list))
         self.table_df = pd.DataFrame(data_list,
                                      columns=[
                                          "table_id", "num_col", "data_tensor",

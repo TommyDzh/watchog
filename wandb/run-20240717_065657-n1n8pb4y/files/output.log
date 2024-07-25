@@ -1,0 +1,63 @@
+/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/optimization.py:429: FutureWarning: This implementation of AdamW is deprecated and will be removed in a future version. Use the PyTorch implementation torch.optim.AdamW instead, or set `no_deprecation_warning=True` to disable this warning
+  warnings.warn(
+We strongly recommend passing in an `attention_mask` since your input_ids may be padded. See https://huggingface.co/docs/transformers/troubleshooting#incorrect-output-when-padding-tokens-arent-masked.
+Epoch 0 starts
+Epoch 0 (sato0): tr_loss=0.9646238 tr_macro_f1=0.4228 tr_micro_f1=0.7450  vl_loss=0.4799221 vl_macro_f1=0.5676 vl_micro_f1=0.8870 (197.66 sec.)
+Epoch 1 starts
+Epoch 1 (sato0): tr_loss=0.3412207 tr_macro_f1=0.6715 tr_micro_f1=0.9158  vl_loss=0.4058259 vl_macro_f1=0.6568 vl_micro_f1=0.9041 (203.29 sec.)
+Epoch 2 starts
+Epoch 2 (sato0): tr_loss=0.2337615 tr_macro_f1=0.7549 tr_micro_f1=0.9411  vl_loss=0.3763230 vl_macro_f1=0.7156 vl_micro_f1=0.9107 (204.47 sec.)
+Epoch 3 starts
+Epoch 3 (sato0): tr_loss=0.1651979 tr_macro_f1=0.8115 tr_micro_f1=0.9585  vl_loss=0.3803665 vl_macro_f1=0.7550 vl_micro_f1=0.9179 (203.58 sec.)
+Epoch 4 starts
+Epoch 4 (sato0): tr_loss=0.1340802 tr_macro_f1=0.8471 tr_micro_f1=0.9656  vl_loss=0.3827166 vl_macro_f1=0.7761 vl_micro_f1=0.9233 (204.19 sec.)
+Epoch 5 starts
+Epoch 5 (sato0): tr_loss=0.1053959 tr_macro_f1=0.8839 tr_micro_f1=0.9727  vl_loss=0.3904889 vl_macro_f1=0.7801 vl_micro_f1=0.9239 (210.63 sec.)
+Epoch 6 starts
+Epoch 6 (sato0): tr_loss=0.0855326 tr_macro_f1=0.9039 tr_micro_f1=0.9773  vl_loss=0.3788913 vl_macro_f1=0.8006 vl_micro_f1=0.9275 (203.57 sec.)
+Epoch 7 starts
+Epoch 7 (sato0): tr_loss=0.0739616 tr_macro_f1=0.9170 tr_micro_f1=0.9808  vl_loss=0.3889190 vl_macro_f1=0.7995 vl_micro_f1=0.9273 (204.39 sec.)
+Epoch 8 starts
+Epoch 8 (sato0): tr_loss=0.0568481 tr_macro_f1=0.9368 tr_micro_f1=0.9850  vl_loss=0.4057281 vl_macro_f1=0.8048 vl_micro_f1=0.9324 (200.54 sec.)
+Epoch 9 starts
+Epoch 9 (sato0): tr_loss=0.0572110 tr_macro_f1=0.9464 tr_micro_f1=0.9853  vl_loss=0.4570315 vl_macro_f1=0.7842 vl_micro_f1=0.9208 (209.70 sec.)
+Epoch 10 starts
+Epoch 10 (sato0): tr_loss=0.0492585 tr_macro_f1=0.9486 tr_micro_f1=0.9865  vl_loss=0.3954470 vl_macro_f1=0.8180 vl_micro_f1=0.9320 (185.86 sec.)
+Epoch 11 starts
+Epoch 11 (sato0): tr_loss=0.0447742 tr_macro_f1=0.9590 tr_micro_f1=0.9888  vl_loss=0.3947442 vl_macro_f1=0.8072 vl_micro_f1=0.9333 (203.81 sec.)
+Epoch 12 starts
+Epoch 12 (sato0): tr_loss=0.0365587 tr_macro_f1=0.9641 tr_micro_f1=0.9904  vl_loss=0.4305431 vl_macro_f1=0.8079 vl_micro_f1=0.9315 (204.37 sec.)
+Epoch 13 starts
+Epoch 13 (sato0): tr_loss=0.0326892 tr_macro_f1=0.9703 tr_micro_f1=0.9912  vl_loss=0.4243024 vl_macro_f1=0.8073 vl_micro_f1=0.9328 (203.14 sec.)
+Epoch 14 starts
+Epoch 14 (sato0): tr_loss=0.0290907 tr_macro_f1=0.9735 tr_micro_f1=0.9922  vl_loss=0.4417974 vl_macro_f1=0.8047 vl_micro_f1=0.9317 (185.36 sec.)
+Epoch 15 starts
+Epoch 15 (sato0): tr_loss=0.0258705 tr_macro_f1=0.9752 tr_micro_f1=0.9929  vl_loss=0.4304350 vl_macro_f1=0.8086 vl_micro_f1=0.9325 (185.46 sec.)
+Epoch 16 starts
+Epoch 16 (sato0): tr_loss=0.0226852 tr_macro_f1=0.9806 tr_micro_f1=0.9941  vl_loss=0.4549023 vl_macro_f1=0.8183 vl_micro_f1=0.9322 (196.19 sec.)
+Epoch 17 starts
+Epoch 17 (sato0): tr_loss=0.0180890 tr_macro_f1=0.9877 tr_micro_f1=0.9953  vl_loss=0.4503008 vl_macro_f1=0.8137 vl_micro_f1=0.9337 (202.89 sec.)
+Epoch 18 starts
+Epoch 18 (sato0): tr_loss=0.0193125 tr_macro_f1=0.9855 tr_micro_f1=0.9948  vl_loss=0.4429602 vl_macro_f1=0.8146 vl_micro_f1=0.9326 (202.61 sec.)
+Epoch 19 starts
+Epoch 19 (sato0): tr_loss=0.0166827 tr_macro_f1=0.9873 tr_micro_f1=0.9957  vl_loss=0.4526187 vl_macro_f1=0.8211 vl_micro_f1=0.9339 (185.30 sec.)
+Epoch 20 starts
+Epoch 20 (sato0): tr_loss=0.0139799 tr_macro_f1=0.9900 tr_micro_f1=0.9961  vl_loss=0.4665161 vl_macro_f1=0.8130 vl_micro_f1=0.9346 (203.34 sec.)
+Epoch 21 starts
+Epoch 21 (sato0): tr_loss=0.0129045 tr_macro_f1=0.9911 tr_micro_f1=0.9964  vl_loss=0.4691510 vl_macro_f1=0.8167 vl_micro_f1=0.9345 (204.22 sec.)
+Epoch 22 starts
+Epoch 22 (sato0): tr_loss=0.0110762 tr_macro_f1=0.9920 tr_micro_f1=0.9969  vl_loss=0.4763860 vl_macro_f1=0.8248 vl_micro_f1=0.9360 (186.12 sec.)
+Epoch 23 starts
+Epoch 23 (sato0): tr_loss=0.0103620 tr_macro_f1=0.9913 tr_micro_f1=0.9971  vl_loss=0.4852274 vl_macro_f1=0.8180 vl_micro_f1=0.9368 (240.45 sec.)
+Epoch 24 starts
+Epoch 24 (sato0): tr_loss=0.0097824 tr_macro_f1=0.9937 tr_micro_f1=0.9973  vl_loss=0.4938233 vl_macro_f1=0.8207 vl_micro_f1=0.9354 (214.69 sec.)
+Epoch 25 starts
+Epoch 25 (sato0): tr_loss=0.0087767 tr_macro_f1=0.9935 tr_micro_f1=0.9973  vl_loss=0.4942531 vl_macro_f1=0.8290 vl_micro_f1=0.9378 (186.82 sec.)
+Epoch 26 starts
+Epoch 26 (sato0): tr_loss=0.0080661 tr_macro_f1=0.9943 tr_micro_f1=0.9975  vl_loss=0.5026694 vl_macro_f1=0.8185 vl_micro_f1=0.9367 (205.70 sec.)
+Epoch 27 starts
+Epoch 27 (sato0): tr_loss=0.0071342 tr_macro_f1=0.9952 tr_micro_f1=0.9978  vl_loss=0.5147465 vl_macro_f1=0.8294 vl_micro_f1=0.9373 (187.15 sec.)
+Epoch 28 starts
+Epoch 28 (sato0): tr_loss=0.0064928 tr_macro_f1=0.9950 tr_micro_f1=0.9978  vl_loss=0.5194211 vl_macro_f1=0.8280 vl_micro_f1=0.9375 (235.93 sec.)
+Epoch 29 starts
+Epoch 29 (sato0): tr_loss=0.0063284 tr_macro_f1=0.9953 tr_micro_f1=0.9979  vl_loss=0.5214779 vl_macro_f1=0.8268 vl_micro_f1=0.9382 (211.09 sec.)

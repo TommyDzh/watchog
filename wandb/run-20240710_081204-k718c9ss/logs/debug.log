@@ -1,0 +1,27 @@
+2024-07-10 08:12:04,876 INFO    MainThread:3738966 [wandb_setup.py:_flush():76] Current SDK version is 0.17.4
+2024-07-10 08:12:04,876 INFO    MainThread:3738966 [wandb_setup.py:_flush():76] Configure stats pid to 3738966
+2024-07-10 08:12:04,876 INFO    MainThread:3738966 [wandb_setup.py:_flush():76] Loading settings from /home/zhihao/.config/wandb/settings
+2024-07-10 08:12:04,876 INFO    MainThread:3738966 [wandb_setup.py:_flush():76] Loading settings from /home/zhihao/jupyterprojects/TU/watchog/wandb/settings
+2024-07-10 08:12:04,876 INFO    MainThread:3738966 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2024-07-10 08:12:04,876 INFO    MainThread:3738966 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2024-07-10 08:12:04,876 INFO    MainThread:3738966 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'supcl_train.py', 'program_abspath': '/home/zhihao/jupyterprojects/TU/watchog/supcl_train.py', 'program': 'supcl_train.py'}
+2024-07-10 08:12:04,876 INFO    MainThread:3738966 [wandb_setup.py:_flush():76] Applying login settings: {}
+2024-07-10 08:12:04,876 INFO    MainThread:3738966 [wandb_init.py:_log_setup():529] Logging user logs to /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/logs/debug.log
+2024-07-10 08:12:04,876 INFO    MainThread:3738966 [wandb_init.py:_log_setup():530] Logging internal logs to /home/zhihao/jupyterprojects/TU/watchog/wandb/run-20240710_081204-k718c9ss/logs/debug-internal.log
+2024-07-10 08:12:04,876 INFO    MainThread:3738966 [wandb_init.py:init():569] calling init triggers
+2024-07-10 08:12:04,877 INFO    MainThread:3738966 [wandb_init.py:init():576] wandb.init called with sweep_config: {}
+config: {'model': 'Watchog', 'pretrain_data': 'wikitables', 'pretrained_model_path': '', 'data_path': '/data/zhihao/TU/TURL/', 'mode': 'simclr', 'logdir': '/data/zhihao/TU/Watchog/model/', 'run_id': 0, 'batch_size': 32, 'max_len': 256, 'size': 100000, 'lr': 5e-05, 'n_epochs': 10, 'lm': 'bert', 'projector': 768, 'augment_op': 'sample_row4,sample_row4', 'table_order': 'column', 'sample_meth': 'tfidf_entity', 'temperature': 0.05, 'save_model': 10, 'fp16': True, 'gpus': '0', 'single_column': False}
+2024-07-10 08:12:04,877 INFO    MainThread:3738966 [wandb_init.py:init():619] starting backend
+2024-07-10 08:12:04,877 INFO    MainThread:3738966 [wandb_init.py:init():623] setting up manager
+2024-07-10 08:12:04,879 INFO    MainThread:3738966 [backend.py:_multiprocessing_setup():105] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2024-07-10 08:12:04,880 INFO    MainThread:3738966 [wandb_init.py:init():631] backend started and connected
+2024-07-10 08:12:04,884 INFO    MainThread:3738966 [wandb_init.py:init():720] updated telemetry
+2024-07-10 08:12:04,984 INFO    MainThread:3738966 [wandb_init.py:init():753] communicating run to backend with 90.0 second timeout
+2024-07-10 08:12:05,547 INFO    MainThread:3738966 [wandb_run.py:_on_init():2402] communicating current version
+2024-07-10 08:12:05,605 INFO    MainThread:3738966 [wandb_run.py:_on_init():2411] got version response 
+2024-07-10 08:12:05,606 INFO    MainThread:3738966 [wandb_init.py:init():804] starting run threads in backend
+2024-07-10 08:12:05,998 INFO    MainThread:3738966 [wandb_run.py:_console_start():2380] atexit reg
+2024-07-10 08:12:05,998 INFO    MainThread:3738966 [wandb_run.py:_redirect():2235] redirect: wrap_raw
+2024-07-10 08:12:05,999 INFO    MainThread:3738966 [wandb_run.py:_redirect():2300] Wrapping output streams.
+2024-07-10 08:12:05,999 INFO    MainThread:3738966 [wandb_run.py:_redirect():2325] Redirects installed.
+2024-07-10 08:12:06,001 INFO    MainThread:3738966 [wandb_init.py:init():847] run started, returning control to user process
