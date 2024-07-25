@@ -1,5 +1,0 @@
-/home/zhihao/jupyterprojects/jupyter/lib/python3.8/site-packages/transformers/optimization.py:429: FutureWarning: This implementation of AdamW is deprecated and will be removed in a future version. Use the PyTorch implementation torch.optim.AdamW instead, or set `no_deprecation_warning=True` to disable this warning
-  warnings.warn(
-We strongly recommend passing in an `attention_mask` since your input_ids may be padded. See https://huggingface.co/docs/transformers/troubleshooting#incorrect-output-when-padding-tokens-arent-masked.
-Epoch 0 starts
-Epoch 0 (sato0): tr_loss=0.7397966 tr_macro_f1=0.4852 tr_micro_f1=0.8357  vl_loss=0.4103917 vl_macro_f1=0.6183 vl_micro_f1=0.9105 (195.63 sec.)

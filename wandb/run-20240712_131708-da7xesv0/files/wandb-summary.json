@@ -1,1 +1,0 @@
-{"train/loss": 38.992843639633065, "train/time": 6775.636255979538, "_timestamp": 1720857111.7614658, "_runtime": 66882.77468585968, "_step": 11, "train/avg_time": 6775.636255979538, "ckpt_path": "/data/zhihao/TU/Watchog/model/wikitables/simclr/bert_None_10_32_256_5e-05_sample_row4,sample_row4_tfidf_entity_column_0.05_0_last.pt", "_wandb": {"runtime": 66882}}
