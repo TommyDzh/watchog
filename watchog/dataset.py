@@ -1589,9 +1589,11 @@ class GittablesTablewiseDataset(data.Dataset):
             #     break
             labeled_columns = group_df[group_df['class_id'] > -1]
             unlabeled_columns = group_df[group_df['class_id'] == -1]
+            
+            
             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns.sample(min(10-len(labeled_columns), len(unlabeled_columns)))])
             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(10-len(labeled_columns), 0), len(unlabeled_columns))]])
-            group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(max_unlabeled-len(labeled_columns), 0), len(unlabeled_columns))]])
+            group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:]])
             group_df.sort_values(by=['col_idx'], inplace=True)
 
             if max_length <= 128:

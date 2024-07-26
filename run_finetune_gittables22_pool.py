@@ -71,9 +71,9 @@ comment = "max-unlabeled@{}".format(max_unlabeled)
 
     
 max_unlabeled = 2
-pool = 'v2'
+pool = 'v1.1'
 comment = f"pool@{pool}-max-unlabeled@{max_unlabeled}"
-for task in [ 'gt-semtab22-dbpedia1']:
+for task in [ 'gt-semtab22-dbpedia0', 'gt-semtab22-dbpedia1']:
     cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py \
                 --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --batch_size {} --epoch {} \
                 --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
