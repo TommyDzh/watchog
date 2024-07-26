@@ -459,6 +459,10 @@ class BertMultiPooler(nn.Module):
         if self.version == "v0":
             pooled_outputs = extract_cls_tokens(hidden_states, cls_indexes)
             pooled_outputs = self.dense(pooled_outputs)
+        elif self.version == "v0.1":
+            pooled_outputs = extract_cls_tokens(hidden_states, cls_indexes)
+            tab_outputs = pooler_output[cls_indexes[:,0]] # (B, hidden_size)
+            pooled_outputs = self.dense(pooled_outputs) + self.dense_tab(tab_outputs)           
         elif self.version == "v1":
             pooled_outputs = pool_sub_sentences(hidden_states, cls_indexes, table_length)
             pooled_outputs = self.dense(pooled_outputs)
@@ -480,6 +484,11 @@ class BertMultiPooler(nn.Module):
             pooled_outputs = self.dense(pooled_outputs)
             tab_outputs = pooler_output[cls_indexes[:,0]] # (B, hidden_size)
             pooled_outputs = pooled_outputs + self.dense_tab(tab_outputs)
+        elif self.version == "v4.1": 
+            hidden_states = self.dense(hidden_states)
+            pooled_outputs = pool_sub_sentences(hidden_states, cls_indexes, table_length)
+            tab_outputs = pooler_output[cls_indexes[:,0]] # (B, hidden_size)
+            pooled_outputs = pooled_outputs + self.dense_tab(tab_outputs)            
         else:
             raise ValueError(f"Invalid version: {self.version}")
         pooled_outputs = self.activation(pooled_outputs)

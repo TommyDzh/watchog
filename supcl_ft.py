@@ -49,6 +49,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="Watchog")
     parser.add_argument("--pool_version", type=str, default="v0")
+    parser.add_argument("--random_sample", type=bool, default=False)
     parser.add_argument("--comment", type=str, default="debug", help="to distinguish the runs")
     parser.add_argument(
         "--shortcut_name",
@@ -202,8 +203,8 @@ if __name__ == "__main__":
 
     if args.from_scratch:
         if "gt" in task:
-            tag_name = "{}/{}-{}-pool{}-unlabeled{}-bs{}-ml{}-ne{}-do{}{}".format(
-                taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag, args.pool_version, args.max_unlabeled,
+            tag_name = "{}/{}-{}-pool{}-unlabeled{}-rand{}-bs{}-ml{}-ne{}-do{}{}".format(
+                taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag, args.pool_version, args.max_unlabeled, args.random_sample,
                 batch_size, max_length, num_train_epochs, args.dropout_prob, 
                 '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
         else:
@@ -214,8 +215,8 @@ if __name__ == "__main__":
         
     else:
         if "gt" in task:
-            tag_name = "{}/{}_{}-pool{}-unlabeled{}-bs{}-ml{}-ne{}-do{}{}".format(
-                taskname, args.cl_tag.replace('/', '-'),  shortcut_name, args.small_tag, args.pool_version, args.max_unlabeled,
+            tag_name = "{}/{}_{}-pool{}-unlabeled{}-rand{}-bs{}-ml{}-ne{}-do{}{}".format(
+                taskname, args.cl_tag.replace('/', '-'),  shortcut_name, args.small_tag, args.pool_version, args.max_unlabeled, args.random_sample,
                 batch_size, max_length, num_train_epochs, args.dropout_prob,
                 '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
         else:
@@ -257,9 +258,9 @@ if __name__ == "__main__":
     setattr(ckpt_hp, 'shortcut_name', args.shortcut_name)
     setattr(ckpt_hp, 'num_labels', args.num_classes)
     
-    pre_model, trainset = load_checkpoint(ckpt)
-    tokenizer = trainset.tokenizer
-
+    
+    
+    tokenizer = BertTokenizer.from_pretrained(shortcut_name)
     if task == "turl-re" and args.colpair:
         model = BertForMultiOutputClassification(ckpt_hp, device=device, lm=ckpt['hp'].lm, col_pair='Pair')
     elif "col-popl" in task:
@@ -269,17 +270,19 @@ if __name__ == "__main__":
         
 
     if not args.from_scratch:
+        pre_model, trainset = load_checkpoint(ckpt)
         model.bert = pre_model.bert
-
+        tokenizer = trainset.tokenizer
+        del pre_model
     if task == "turl-re" and args.colpair and ckpt['hp'].lm != 'distilbert':
         config = BertConfig.from_pretrained(lm_mp[ckpt['hp'].lm])
         model.bert.pooler = BertMultiPairPooler(config).to(device)
         print("Use column-pair pooling")
         # print(type(model.bert.pooler), model.bert.pooler.hidden_size)
 
-    del pre_model
+    
         
-    padder = collate_fn(trainset.tokenizer.pad_token_id)
+    padder = collate_fn(tokenizer.pad_token_id)
     with accelerator.main_process_first():
         if task in [
                 "sato0", "sato1", "sato2", "sato3", "sato4", "msato0",
@@ -301,7 +304,8 @@ if __name__ == "__main__":
                                         train_ratio=1.0,
                                         device=device,
                                         small_tag=args.small_tag,
-                                        base_dirpath=os.path.join(args.data_path, "doduo", "data"))
+                                        base_dirpath=os.path.join(args.data_path, "doduo", "data"), 
+                                        random_sample=args.random_sample)
             valid_dataset = dataset_cls(cv=cv,
                                         split="valid",
                                         tokenizer=tokenizer,
