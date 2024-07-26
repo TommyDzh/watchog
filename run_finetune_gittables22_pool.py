@@ -22,7 +22,6 @@ from_scratch = True
 # from_scratch = True # True means using Huggingface's pre-trained language model's checkpoint
 eval_test = True
 colpair = False
-gpus = '1'
 small_tag = 'semi'
 max_unlabeled = 2
 comment = "max-unlabeled@{}".format(max_unlabeled)
@@ -70,14 +69,35 @@ comment = "max-unlabeled@{}".format(max_unlabeled)
 
 
     
+# max_unlabeled = 8
+# gpus = '1'
+# pool = 'v0'
+# rand = True
+# comment = f"rand_pool@{pool}-max-unlabeled@{max_unlabeled}"
+# for task in [ 'gt-semtab22-dbpedia-all0', 'gt-semtab22-dbpedia-all1']:
+#     cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py \
+#                 --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --random_sample {} --batch_size {} --epoch {} \
+#                 --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
+#         gpus, base_model, task, ml, max_unlabeled, pool, rand, bs, n_epochs, dropout_prob,
+#         ckpt_path, cl_tag, small_tag, comment,
+#         '--colpair' if colpair else '',
+#         '--from_scratch' if from_scratch else '',        
+#         '--eval_test' if eval_test else ''
+#     )   
+#     # os.system('{} & '.format(cmd))
+#     subprocess.run(cmd, shell=True, check=True)
+
+
 max_unlabeled = 2
-pool = 'v2'
+gpus = '0'
+pool = 'v0.1'
+rand = False
 comment = f"pool@{pool}-max-unlabeled@{max_unlabeled}"
-for task in [ 'gt-semtab22-dbpedia1']:
+for task in [ 'gt-semtab22-dbpedia0', 'gt-semtab22-dbpedia1']:
     cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py \
-                --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --batch_size {} --epoch {} \
+                --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --random_sample {} --batch_size {} --epoch {} \
                 --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
-        gpus, base_model, task, ml, max_unlabeled, pool, bs, n_epochs, dropout_prob,
+        gpus, base_model, task, ml, max_unlabeled, pool, rand, bs, n_epochs, dropout_prob,
         ckpt_path, cl_tag, small_tag, comment,
         '--colpair' if colpair else '',
         '--from_scratch' if from_scratch else '',        

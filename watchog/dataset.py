@@ -1542,7 +1542,9 @@ class GittablesTablewiseDataset(data.Dataset):
             base_tag: str = '', # blank, comma
             small_tag: str = "",
             train_ratio: float = 1.0,
-            max_unlabeled=4):
+            max_unlabeled=8,
+            random_sample=False, # TODO
+            train_only=True): # TODO
         if device is None:
             device = torch.device('cpu')
         basename = small_tag+ "_cv_{}.csv"
@@ -1565,7 +1567,8 @@ class GittablesTablewiseDataset(data.Dataset):
 
         if gt_only:
             df = df[df["class_id"] > -1]
-        
+        if train_only and split != "train":
+            df = df[df["class_id"] > -1]
 
         
         data_list = []
@@ -1589,9 +1592,11 @@ class GittablesTablewiseDataset(data.Dataset):
             #     break
             labeled_columns = group_df[group_df['class_id'] > -1]
             unlabeled_columns = group_df[group_df['class_id'] == -1]
+            num_unlabeled = min(max(max_unlabeled-len(labeled_columns), 0), len(unlabeled_columns))
+            unlabeled_columns = unlabeled_columns.sample(num_unlabeled) if random_sample else unlabeled_columns[0:num_unlabeled]
             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns.sample(min(10-len(labeled_columns), len(unlabeled_columns)))])
             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(10-len(labeled_columns), 0), len(unlabeled_columns))]])
-            group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(max_unlabeled-len(labeled_columns), 0), len(unlabeled_columns))]])
+            group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns]) # TODO
             group_df.sort_values(by=['col_idx'], inplace=True)
 
             if max_length <= 128:
