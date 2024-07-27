@@ -9,7 +9,7 @@ from multiprocessing import Semaphore
 # task = 'turl-re'
 task = 'gt-semtab22-dbpedia-all0'
 # task = 'turl'
-ml = 128  # 32
+ml = 32  # 32
 bs = 16 # 16
 n_epochs = 50
 # n_epochs = 10
@@ -22,7 +22,7 @@ from_scratch = True
 # from_scratch = True # True means using Huggingface's pre-trained language model's checkpoint
 eval_test = True
 colpair = False
-small_tag = 'semi1'
+small_tag = 'semi'
 max_unlabeled = 2
 comment = "max-unlabeled@{}".format(max_unlabeled)
 
@@ -54,7 +54,7 @@ comment = "max-unlabeled@{}".format(max_unlabeled)
 # max_unlabeled = 2
 # pool = 'v1'
 # comment = f"pool@{pool}-max-unlabeled@{max_unlabeled}"
-# for task in ['gt-semtab22-dbpedia0', 'gt-semtab22-dbpedia1']:
+# for task in ['sato0']:
 #     cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py \
 #                 --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --batch_size {} --epoch {} \
 #                 --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
@@ -87,16 +87,38 @@ comment = "max-unlabeled@{}".format(max_unlabeled)
 #     # os.system('{} & '.format(cmd))
 #     subprocess.run(cmd, shell=True, check=True)
 
-max_unlabeled = 0
-gpus = '2'
+
+max_unlabeled = 2
+nf = 5
+gpus = '0'
 pool = 'v0'
-rand = True
-comment = f"rand_trainonly_pool@{pool}-max-unlabeled@{max_unlabeled}"
-for task in ['gt-semtab22-dbpedia-all0']:
-    cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py --wandb True \
-                --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --random_sample {} --batch_size {} --epoch {} \
+rand = False
+comment = f"filter@{nf}_pool@{pool}"
+for task in [ 'sato0']:
+    cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_filter.py --wandb True \
+                --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --random_sample {} --batch_size {} --num_filter {} --epoch {} \
                 --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
-        gpus, base_model, task, ml, max_unlabeled, pool, rand, bs, n_epochs, dropout_prob,
+        gpus, base_model, task, ml, max_unlabeled, pool, rand, bs, nf, n_epochs, dropout_prob,
+        ckpt_path, cl_tag, small_tag, comment,
+        '--colpair' if colpair else '',
+        '--from_scratch' if from_scratch else '',        
+        '--eval_test' if eval_test else ''
+    )   
+    # os.system('{} & '.format(cmd))
+    subprocess.run(cmd, shell=True, check=True)
+    
+    
+max_unlabeled = 2
+nf = 10
+gpus = '0'
+pool = 'v0'
+rand = False
+comment = f"filter@{nf}_pool@{pool}"
+for task in [ 'sato0']:
+    cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_filter.py --wandb True \
+                --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --random_sample {} --batch_size {} --num_filter {} --epoch {} \
+                --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
+        gpus, base_model, task, ml, max_unlabeled, pool, rand, bs, nf, n_epochs, dropout_prob,
         ckpt_path, cl_tag, small_tag, comment,
         '--colpair' if colpair else '',
         '--from_scratch' if from_scratch else '',        
@@ -107,15 +129,16 @@ for task in ['gt-semtab22-dbpedia-all0']:
 
 
 max_unlabeled = 2
-gpus = '2'
+nf = 15
+gpus = '0'
 pool = 'v0'
-rand = True
-comment = f"rand_trainonly_pool@{pool}-max-unlabeled@{max_unlabeled}"
-for task in ['gt-semtab22-dbpedia-all0']:
-    cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py --wandb True \
-                --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --random_sample {} --batch_size {} --epoch {} \
+rand = False
+comment = f"filter@{nf}_pool@{pool}"
+for task in [ 'sato0']:
+    cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_filter.py --wandb True \
+                --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --random_sample {} --batch_size {} --num_filter {} --epoch {} \
                 --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
-        gpus, base_model, task, ml, max_unlabeled, pool, rand, bs, n_epochs, dropout_prob,
+        gpus, base_model, task, ml, max_unlabeled, pool, rand, bs, nf, n_epochs, dropout_prob,
         ckpt_path, cl_tag, small_tag, comment,
         '--colpair' if colpair else '',
         '--from_scratch' if from_scratch else '',        
@@ -125,39 +148,21 @@ for task in ['gt-semtab22-dbpedia-all0']:
     subprocess.run(cmd, shell=True, check=True)
     
     
-    
-# max_unlabeled = 4
-# gpus = '2'
-# pool = 'v0'
-# rand = True
-# comment = f"rand_pool@{pool}-max-unlabeled@{max_unlabeled}"
-# for task in ['gt-semtab22-dbpedia-all0']:
-#     cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py --wandb True \
-#                 --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --random_sample {} --batch_size {} --epoch {} \
-#                 --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
-#         gpus, base_model, task, ml, max_unlabeled, pool, rand, bs, n_epochs, dropout_prob,
-#         ckpt_path, cl_tag, small_tag, comment,
-#         '--colpair' if colpair else '',
-#         '--from_scratch' if from_scratch else '',        
-#         '--eval_test' if eval_test else ''
-#     )   
-#     # os.system('{} & '.format(cmd))
-#     subprocess.run(cmd, shell=True, check=True)
-    
-# max_unlabeled = 8
-# gpus = '2'
-# pool = 'v0'
-# rand = True
-# comment = f"rand_pool@{pool}-max-unlabeled@{max_unlabeled}"
-# for task in [ 'gt-semtab22-dbpedia0']:
-#     cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py --wandb True \
-#                 --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --random_sample {} --batch_size {} --epoch {} \
-#                 --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
-#         gpus, base_model, task, ml, max_unlabeled, pool, rand, bs, n_epochs, dropout_prob,
-#         ckpt_path, cl_tag, small_tag, comment,
-#         '--colpair' if colpair else '',
-#         '--from_scratch' if from_scratch else '',        
-#         '--eval_test' if eval_test else ''
-#     )   
-#     # os.system('{} & '.format(cmd))
-#     subprocess.run(cmd, shell=True, check=True)
+max_unlabeled = 2
+nf = 20
+gpus = '0'
+pool = 'v0'
+rand = False
+comment = f"filter@{nf}_pool@{pool}"
+for task in [ 'sato0']:
+    cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_filter.py --wandb True \
+                --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --random_sample {} --batch_size {} --num_filter {} --epoch {} \
+                --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
+        gpus, base_model, task, ml, max_unlabeled, pool, rand, bs, nf, n_epochs, dropout_prob,
+        ckpt_path, cl_tag, small_tag, comment,
+        '--colpair' if colpair else '',
+        '--from_scratch' if from_scratch else '',        
+        '--eval_test' if eval_test else ''
+    )   
+    # os.system('{} & '.format(cmd))
+    subprocess.run(cmd, shell=True, check=True)

@@ -731,7 +731,8 @@ class SatoCVTablewiseDataset(data.Dataset):
             train_ratio: float = 1.0,
             device: torch.device = None,
             base_dirpath: str = "./data/doduo",
-            small_tag: str = ""):
+            small_tag: str = "",
+            ):
         if device is None:
             device = torch.device('cpu')
 
@@ -763,7 +764,7 @@ class SatoCVTablewiseDataset(data.Dataset):
             # test
             filepath = os.path.join(base_dirpath, basename.format(cv))
             df = pd.read_csv(filepath)
-
+        self.df = df
         num_tables = len(df.groupby("table_id"))
         valid_index = int(num_tables * 0.8)
         num_train = int(train_ratio * num_tables * 0.8)
@@ -1600,7 +1601,10 @@ class GittablesTablewiseDataset(data.Dataset):
             group_df.sort_values(by=['col_idx'], inplace=True)
 
             if max_length <= 128:
-                cur_maxlen = min(max_length, 512 // len(list(group_df["class_id"].values)) - 1)
+                try:
+                    cur_maxlen = min(max_length, 512 // len(list(group_df["class_id"].values)) - 1)
+                except:
+                    raise ValueError(f"Error: {len(list(group_df['class_id'].values ))}")
             else:
                 cur_maxlen = max(1, max_length // len(list(group_df["class_id"].values)) - 1)
                 

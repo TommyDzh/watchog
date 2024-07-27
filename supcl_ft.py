@@ -47,7 +47,9 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--wandb", type=bool, default=False)
     parser.add_argument("--model", type=str, default="Watchog")
+    parser.add_argument("--unlabeled_train_only", type=bool, default=True)
     parser.add_argument("--pool_version", type=str, default="v0")
     parser.add_argument("--random_sample", type=bool, default=False)
     parser.add_argument("--comment", type=str, default="debug", help="to distinguish the runs")
@@ -67,7 +69,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--max_unlabeled",
-        default=4,
+        default=0,
         type=int,
     )   
 
@@ -305,7 +307,7 @@ if __name__ == "__main__":
                                         device=device,
                                         small_tag=args.small_tag,
                                         base_dirpath=os.path.join(args.data_path, "doduo", "data"), 
-                                        random_sample=args.random_sample)
+                                        )
             valid_dataset = dataset_cls(cv=cv,
                                         split="valid",
                                         tokenizer=tokenizer,
@@ -363,16 +365,18 @@ if __name__ == "__main__":
                                             device=device,
                                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                             small_tag=args.small_tag,
-                                            max_unlabeled=args.max_unlabeled)
+                                            max_unlabeled=args.max_unlabeled,
+                                            random_sample=args.random_sample)
                 valid_dataset = dataset_cls(cv=cv,
                                             split="valid", src=src,
                                             tokenizer=tokenizer,
                                             max_length=max_length,
-                                            gt_only='all' not in task,
+                                            gt_only='all' not in task or args.unlabeled_train_only,
                                             device=device,
                                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                             small_tag=args.small_tag,
-                                            max_unlabeled=args.max_unlabeled)
+                                            max_unlabeled=args.max_unlabeled,
+                                            )
 
                 train_sampler = RandomSampler(train_dataset)
                 train_dataloader = DataLoader(train_dataset,
@@ -388,7 +392,7 @@ if __name__ == "__main__":
                                            split="test", src=src,
                                             tokenizer=tokenizer,
                                             max_length=max_length,
-                                            gt_only='all' not in task,
+                                            gt_only='all' not in task or args.unlabeled_train_only,
                                             device=device,
                                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                             small_tag=args.small_tag,
@@ -555,7 +559,7 @@ if __name__ == "__main__":
         else:
             raise ValueError("task name must be either sato or turl.")
 
-    if accelerator.is_local_main_process:
+    if accelerator.is_local_main_process and args.wandb:
         wandb.init(config=args,
             project="TableUnderstanding",
             name=f"{args.model} {args.comment} {args.small_tag}_DS@{args.task}_scratch@{args.from_scratch}_maxlen@{args.max_length}_bs@{args.batch_size}",
@@ -849,7 +853,7 @@ if __name__ == "__main__":
                 .format(epoch, task, tr_loss, tr_macro_f1, tr_micro_f1),
                 "vl_loss={:.7f} vl_macro_f1={:.4f} vl_micro_f1={:.4f} ({:.2f} sec.)"
                 .format(vl_loss, vl_macro_f1, vl_micro_f1, time_epoch))
-            if accelerator.is_local_main_process:
+            if accelerator.is_local_main_process and args.wandb:
                 wandb.log({
                         f"train/loss": tr_loss,
                         f"train/macro_f1": tr_macro_f1,
@@ -859,7 +863,7 @@ if __name__ == "__main__":
                         f"valid/micro_f1": vl_micro_f1,
                         f"train/time": time_epoch,
                     }, step=epoch+1, commit=True)
-    if accelerator.is_local_main_process:
+    if accelerator.is_local_main_process and args.wandb:
         wandb.log({
                 f"train/avg_time": np.mean(time_epochs),
                 f"valid/best_micro_f1": best_vl_micro_f1,
@@ -973,7 +977,7 @@ if __name__ == "__main__":
             ts_micro_f1, ts_macro_f1, ts_class_f1, ts_conf_mat = f1_score_multilabel(
                 ts_true_list, ts_pred_list)
 
-        if accelerator.is_local_main_process:
+        if accelerator.is_local_main_process and args.wandb:
             wandb.log({
                 f"test/{f1_name}:micro_f1": ts_micro_f1,
                 f"test/{f1_name}:macro_f1": ts_macro_f1,
@@ -996,7 +1000,7 @@ if __name__ == "__main__":
     with open(output_filepath, "w") as fout:
         json.dump(eval_dict, fout)
 
-    if accelerator.is_local_main_process:
+    if accelerator.is_local_main_process and args.wandb:
         wandb.finish()
     # with accelerator.main_process_first():
     #     if args.eval_test:
