@@ -444,7 +444,7 @@ class BertMultiPooler(nn.Module):
 
     def __init__(self, hidden_size, version='v0'):
         super().__init__()
-        self.version = "v0"
+        self.version = version
         self.dense = nn.Linear(hidden_size, hidden_size)
         self.dense_tab = nn.Linear(hidden_size, hidden_size)
         self.activation = nn.Tanh()
@@ -462,7 +462,13 @@ class BertMultiPooler(nn.Module):
         elif self.version == "v0.1":
             pooled_outputs = extract_cls_tokens(hidden_states, cls_indexes)
             tab_outputs = pooler_output[cls_indexes[:,0]] # (B, hidden_size)
-            pooled_outputs = self.dense(pooled_outputs) + self.dense_tab(tab_outputs)           
+            pooled_outputs = self.dense(pooled_outputs) + self.dense_tab(tab_outputs)
+        elif self.version == "v0.2":
+            pooled_outputs = hidden_states[:, 0, :]
+            pooled_outputs = self.dense(pooled_outputs)
+        elif self.version == "v0.3":
+            pooled_outputs = pooler_output
+            pooled_outputs = self.dense(pooled_outputs)            
         elif self.version == "v1":
             pooled_outputs = pool_sub_sentences(hidden_states, cls_indexes, table_length)
             pooled_outputs = self.dense(pooled_outputs)

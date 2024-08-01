@@ -29,7 +29,7 @@ from watchog.dataset import (
     ColPoplTablewiseDataset
 )
 
-from watchog.dataset import TableDataset, SupCLTableDataset, SemtableCVTablewiseDataset, GittablesTablewiseDataset, GittablesCVTablewiseDataset
+from watchog.dataset import TableDataset, SupCLTableDataset, SemtableCVTablewiseDataset, GittablesColwiseDataset, GittablesCVTablewiseDataset
 from watchog.model import BertMultiPairPooler, BertForMultiOutputClassification, BertForMultiOutputClassificationColPopl
 from watchog.model import SupCLforTable, UnsupCLforTable, lm_mp
 from watchog.utils import load_checkpoint, f1_score_multilabel, collate_fn, get_col_pred, ColPoplEvaluator
@@ -49,8 +49,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--wandb", type=bool, default=False)
     parser.add_argument("--model", type=str, default="Watchog")
-    parser.add_argument("--unlabeled_train_only", type=bool, default=True)
-    parser.add_argument("--pool_version", type=str, default="v0")
+    parser.add_argument("--unlabeled_train_only", type=bool, default=False)
+    parser.add_argument("--context_encoding_type", type=str, default="v0")
+    parser.add_argument("--pool_version", type=str, default="v0.2")
     parser.add_argument("--random_sample", type=bool, default=False)
     parser.add_argument("--comment", type=str, default="debug", help="to distinguish the runs")
     parser.add_argument(
@@ -61,15 +62,15 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--max_length",
-        default=128,
+        default=64,
         type=int,
         help=
         "The maximum total input sequence length after tokenization. Sequences longer "
         "than this will be truncated, sequences shorter will be padded.",
     )
     parser.add_argument(
-        "--max_unlabeled",
-        default=0,
+        "--max_num_col",
+        default=8,
         type=int,
     )   
 
@@ -117,7 +118,7 @@ if __name__ == "__main__":
                         type=float,
                         default=0.,
                         help="Warmup ratio")
-    parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate") # 1e-5, 2e-5
+    parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
     parser.add_argument("--task",
                         type=str,
                         default='gt-semtab22-dbpedia-all0',
@@ -156,7 +157,7 @@ if __name__ == "__main__":
                         help="evaluate on testset and do not save the model file")
     parser.add_argument("--small_tag",
                         type=str,
-                        default="comma",
+                        default="semi1",
                         help="e.g., by_table_t5_v1")
     parser.add_argument("--data_path",
                         type=str,
@@ -205,20 +206,20 @@ if __name__ == "__main__":
 
     if args.from_scratch:
         if "gt" in task:
-            tag_name = "{}/{}-{}-pool{}-unlabeled{}-rand{}-bs{}-ml{}-ne{}-do{}{}".format(
-                taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag, args.pool_version, args.max_unlabeled, args.random_sample,
+            tag_name = "{}/{}-{}-{}-pool{}-max_cols{}-rand{}-bs{}-ml{}-ne{}-do{}{}".format(
+                taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag, args.comment, args.pool_version, args.max_num_col, args.random_sample,
                 batch_size, max_length, num_train_epochs, args.dropout_prob, 
                 '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
         else:
-            tag_name = "{}/{}-{}-bs{}-ml{}-ne{}-do{}{}".format(
-                taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag,
+            tag_name = "{}/{}-{}-{}-bs{}-ml{}-ne{}-do{}{}".format(
+                taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag, args.comment, 
                 batch_size, max_length, num_train_epochs, args.dropout_prob, 
                 '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
         
     else:
         if "gt" in task:
-            tag_name = "{}/{}_{}-pool{}-unlabeled{}-rand{}-bs{}-ml{}-ne{}-do{}{}".format(
-                taskname, args.cl_tag.replace('/', '-'),  shortcut_name, args.small_tag, args.pool_version, args.max_unlabeled, args.random_sample,
+            tag_name = "{}/{}_{}-pool{}-max_cols{}-rand{}-bs{}-ml{}-ne{}-do{}{}".format(
+                taskname, args.cl_tag.replace('/', '-'),  shortcut_name, args.small_tag, args.pool_version, args.max_num_col, args.random_sample,
                 batch_size, max_length, num_train_epochs, args.dropout_prob,
                 '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
         else:
@@ -355,7 +356,7 @@ if __name__ == "__main__":
                     src = 'schema'
             if task[-1] in "01234":
                 cv = int(task[-1])
-                dataset_cls = GittablesTablewiseDataset
+                dataset_cls = GittablesColwiseDataset
                 train_dataset = dataset_cls(cv=cv,
                                             split="train",
                                             src=src,
@@ -365,8 +366,9 @@ if __name__ == "__main__":
                                             device=device,
                                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                             small_tag=args.small_tag,
-                                            max_unlabeled=args.max_unlabeled,
-                                            random_sample=args.random_sample)
+                                            max_num_col=args.max_num_col,
+                                            random_sample=args.random_sample,
+                                            context_encoding_type=args.context_encoding_type)
                 valid_dataset = dataset_cls(cv=cv,
                                             split="valid", src=src,
                                             tokenizer=tokenizer,
@@ -375,7 +377,8 @@ if __name__ == "__main__":
                                             device=device,
                                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                             small_tag=args.small_tag,
-                                            max_unlabeled=args.max_unlabeled,
+                                            max_num_col=args.max_num_col,
+                                            context_encoding_type=args.context_encoding_type
                                             )
 
                 train_sampler = RandomSampler(train_dataset)
@@ -396,12 +399,13 @@ if __name__ == "__main__":
                                             device=device,
                                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                             small_tag=args.small_tag,
-                                            max_unlabeled=args.max_unlabeled)
+                                            max_num_col=args.max_num_col,
+                                            context_encoding_type=args.context_encoding_type)
                 test_dataloader = DataLoader(test_dataset,
                                                 batch_size=batch_size//2,
                                                 collate_fn=padder)    
             else:
-                dataset_cls = GittablesTablewiseDataset
+                dataset_cls = GittablesColwiseDataset
                 train_dataset = dataset_cls(split="train",
                                             src=src,
                                             tokenizer=tokenizer,
@@ -661,6 +665,7 @@ if __name__ == "__main__":
                 loss = loss_fn(logits, labels_1d)
             else:
                 logits = model(batch["data"].T, cls_indexes=cls_indexes)
+                
                 # if len(logits.shape) == 2:
                 #     logits = logits.unsqueeze(0)
                 
@@ -879,7 +884,7 @@ if __name__ == "__main__":
             }, commit=True)
     # log train results
     if type(tr_class_f1) != list:
-        tr_class_f1 = tr_class_f1.tolist()    
+        tr_class_f1 = tr_class_f1.tolist()  
     eval_dict["train"]["tr_class_f1"] = tr_class_f1
     eval_dict["train"]["tr_macro_f1"] = tr_macro_f1
     eval_dict["train"]["tr_micro_f1"] = tr_micro_f1

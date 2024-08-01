@@ -87,13 +87,14 @@ comment = "max-unlabeled@{}".format(max_unlabeled)
 #     # os.system('{} & '.format(cmd))
 #     subprocess.run(cmd, shell=True, check=True)
 
+ml = 64  # 32
 max_unlabeled = 4
 gpus = '0'
 pool = 'v0'
-rand = False
-comment = f"pool@{pool}-max-unlabeled@{max_unlabeled}"
+rand = True
+comment = f"rand_trainonly_pool@{pool}-max-unlabeled@{max_unlabeled} --unlabeled_train_only True"
 for task in ['gt-semtab22-dbpedia-all0']:
-    cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py --wandb True --unlabeled_train_only False \
+    cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py --wandb True \
                 --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --random_sample {} --batch_size {} --epoch {} \
                 --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
         gpus, base_model, task, ml, max_unlabeled, pool, rand, bs, n_epochs, dropout_prob,
@@ -106,13 +107,14 @@ for task in ['gt-semtab22-dbpedia-all0']:
     subprocess.run(cmd, shell=True, check=True)
 
 
-max_unlabeled = 8
+ml = 64  # 32
+max_unlabeled = 2
 gpus = '0'
 pool = 'v0'
-rand = False
-comment = f"pool@{pool}-max-unlabeled@{max_unlabeled}"
+rand = True
+comment = f"rand_trainonly_pool@{pool}-max-unlabeled@{max_unlabeled} --unlabeled_train_only True"
 for task in ['gt-semtab22-dbpedia-all0']:
-    cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py --wandb True --unlabeled_train_only False \
+    cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py --wandb True \
                 --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --pool_version {} --random_sample {} --batch_size {} --epoch {} \
                 --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
         gpus, base_model, task, ml, max_unlabeled, pool, rand, bs, n_epochs, dropout_prob,
@@ -123,7 +125,6 @@ for task in ['gt-semtab22-dbpedia-all0']:
     )   
     # os.system('{} & '.format(cmd))
     subprocess.run(cmd, shell=True, check=True)
-    
     
     
 # max_unlabeled = 4
