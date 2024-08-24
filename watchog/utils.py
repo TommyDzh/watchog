@@ -97,6 +97,10 @@ def collate_fn(pad_token_id, data_only=True):
             cls_indexes = torch.nn.utils.rnn.pad_sequence(
                 [sample["cls_indexes"] for sample in samples], padding_value=0)
             batch["cls_indexes"] = cls_indexes
+        if "token_type_ids" in samples[0]:
+            token_type_ids = torch.nn.utils.rnn.pad_sequence(
+                [sample["token_type_ids"] for sample in samples], padding_value=1)
+            batch["token_type_ids"] = token_type_ids
         return batch
         
     return padder

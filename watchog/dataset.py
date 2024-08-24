@@ -1653,6 +1653,335 @@ class GittablesColwiseDataset(data.Dataset):
             self,
             cv: int,
             split: str,
+            tokenizer: AutoTokenizer,
+            max_length: int = 64,
+            gt_only: bool = False,
+            device: torch.device = None,
+            base_dirpath: str = "/data/zhihao/TU/GitTables/semtab_gittables/2022",
+            base_tag: str = '', # blank, comma
+            small_tag: str = "",
+            train_ratio: float = 1.0,
+            max_num_col=8,
+            random_sample=False, # TODO
+            train_only=True,
+            context_encoding_type="v1",
+            adaptive_max_length=False,
+            ): # TODO: not used
+        if device is None:
+            device = torch.device('cpu')
+        basename = small_tag+ "_cv_{}.csv"
+        assert max_num_col >= 1, "max_num_col must be greater than 1"
+        # assert 512//max_num_col >= max_length  , "max_length cannot be smaller than 512//max_num_col"
+        # assert random_sample and split == "train" can't be true at the same time
+        assert not (random_sample and split != "train"), "random_sample and split != train can't be true at the same time"
+        if split in ["train", "valid"]:
+            df_list = []
+            for i in range(5):
+                if i == cv:
+                    continue
+                filepath = os.path.join(base_dirpath, basename.format(i))
+                df_list.append(pd.read_csv(filepath))
+                print(split, i)
+            df = pd.concat(df_list, axis=0)
+        else:
+            # test
+            filepath = os.path.join(base_dirpath, basename.format(cv))
+            df = pd.read_csv(filepath)
+            print(split)
+
+
+        if gt_only or max_num_col == 1:
+            df = df[df["class_id"] > -1]
+
+
+        
+        data_list = []
+        
+        df['class_id'] = df['class_id'].astype(int)
+        df.drop(df[(df['data'].isna()) & (df['class_id'] == -1)].index, inplace=True)
+        df['col_idx'] = df['col_idx'].astype(int)
+        df['data'] = df['data'].astype(str)
+        
+        num_tables = len(df.groupby("table_id"))
+        valid_index = int(num_tables * 0.8)
+        num_train = int(train_ratio * num_tables * 0.8)        
+        
+        # df.drop(df[(df['data'] == '') & (df['class_id'] == -1)].index, inplace=True)
+        for i, (index, group_df) in enumerate(df.groupby("table_id")):
+            if (split == "train") and ((i >= num_train) or (i >= valid_index)):
+                break
+            if split == "valid" and i < valid_index:
+                continue
+            #     break
+            group_df.sort_values(by=['col_idx'], inplace=True)
+            labeled_columns = group_df[group_df['class_id'] > -1]
+            # if len(labeled_columns) > 1:
+            #     print("Here")
+            unlabeled_columns = group_df[group_df['class_id'] == -1]
+            for idx in labeled_columns.index:
+                token_ids_list = []
+                target_column = labeled_columns.loc[idx]
+                rest_columns = labeled_columns[labeled_columns.index != idx] # the rest of labeled columns
+                # tokenize target column
+                if context_encoding_type == "v1.2": # padding each column to make sure that each column is of equal length
+                    token_ids_list.append(tokenizer.encode(
+                    tokenizer.cls_token + " " + target_column["data"] + "[PAD]"*512, add_special_tokens=False, max_length=max_length, truncation=True))                    
+                else:
+                    token_ids_list.append(tokenizer.encode(
+                    tokenizer.cls_token + " " + target_column["data"], add_special_tokens=False, max_length=max_length, truncation=True))
+                # tokenize context
+                if not gt_only:
+                    unlabeled_columns = unlabeled_columns
+                else:
+                    unlabeled_columns  = unlabeled_columns.sample(0)
+                group_df = pd.concat([rest_columns, unlabeled_columns])
+                group_df = group_df[: max_num_col-1] if not random_sample  else group_df.sample(min(max_num_col-1, len(group_df))) # TODO
+                group_df.sort_values(by=['col_idx'], inplace=True)
+                
+                if adaptive_max_length and (len(group_df)+1) < max_num_col:
+                    cur_maxlen = 512 // (len(group_df)+1)
+                else:
+                    cur_maxlen = max_length
+                    
+                if context_encoding_type == "v0":
+                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    tokenizer.cls_token + " " + x, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
+                    )
+                elif context_encoding_type == "v0.1": # only one cls token to separate context and target
+                    token_ids_list.append([tokenizer.cls_token_id])
+                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    " " + x, add_special_tokens=False, max_length=cur_maxlen-1, truncation=True)).tolist(
+                    )                    
+                elif context_encoding_type == "v1":
+                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    tokenizer.sep_token + " " + x, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
+                    )                    
+                elif context_encoding_type == "v1.1": # only one cls token to separate context and target
+                    token_ids_list.append([tokenizer.sep_token_id])
+                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    " " + x, add_special_tokens=False, max_length=cur_maxlen-1, truncation=True)).tolist(
+                    )   
+                elif context_encoding_type == "v1.2": # padding each column to make sure that each column is of equal length
+                    assert len(token_ids_list[0]) == max_length
+                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    tokenizer.sep_token + " " + x + "[PAD]"*512, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
+                    )                  
+                else:
+                    raise ValueError("context_encoding_type {} is not supported".format(context_encoding_type))
+                token_ids = torch.LongTensor(reduce(operator.add,
+                                                    token_ids_list)).to(device)
+                token_type_ids = torch.LongTensor([0 if i < max_length else 1 for i in range(len(token_ids))]).to(device)
+                cls_index_list = [0] 
+                for cls_index in cls_index_list:
+                    assert token_ids[
+                        cls_index] == tokenizer.cls_token_id, "cls_indexes validation"
+                cls_indexes = torch.LongTensor(cls_index_list).to(device)
+                class_ids = torch.LongTensor([target_column["class_id"]]
+                    ).to(device)
+                data_list.append(
+                    [index,
+                    len(group_df), token_ids, class_ids, cls_indexes, token_type_ids])
+        print(split, len(data_list))
+        self.table_df = pd.DataFrame(data_list,
+                                     columns=[
+                                         "table_id", "num_col", "data_tensor",
+                                         "label_tensor", "cls_indexes", "token_type_ids"
+                                     ])
+        """
+        # NOTE: msato contains a small portion of single-col tables. keep it to be consistent.  
+        if multicol_only:
+            # Check
+            num_all_tables = len(self.table_df)
+            self.table_df = self.table_df[self.table_df["num_col"] > 1]
+            assert len(self.table_df) == num_all_tables
+        """
+
+    def __len__(self):
+        return len(self.table_df)
+
+    def __getitem__(self, idx):
+        return {
+            "data": self.table_df.iloc[idx]["data_tensor"],
+            "label": self.table_df.iloc[idx]["label_tensor"],
+            "token_type_ids": self.table_df.iloc[idx]["token_type_ids"]
+        }
+        #"idx": torch.LongTensor([idx])}
+        #"cls_indexes": self.table_df.iloc[idx]["cls_indexes"]}
+        
+        
+class GittablesColwiseMaxDataset(data.Dataset):
+    def __init__(
+            self,
+            cv: int,
+            split: str,
+            tokenizer: AutoTokenizer,
+            max_length: int = 64,
+            gt_only: bool = False,
+            device: torch.device = None,
+            base_dirpath: str = "/data/zhihao/TU/GitTables/semtab_gittables/2022",
+            base_tag: str = '', # blank, comma
+            small_tag: str = "",
+            train_ratio: float = 1.0,
+            max_num_col=8,
+            random_sample=False, # TODO
+            train_only=True,
+            context_encoding_type="v1",
+            adaptive_max_length=False,
+            ): # TODO: not used
+        if device is None:
+            device = torch.device('cpu')
+        basename = small_tag+ "_cv_{}.csv"
+        assert max_num_col >= 1, "max_num_col must be greater than 1"
+        # assert 512//max_num_col >= max_length  , "max_length cannot be smaller than 512//max_num_col"
+        # assert random_sample and split == "train" can't be true at the same time
+        assert not (random_sample and split != "train"), "random_sample and split != train can't be true at the same time"
+        if split in ["train", "valid"]:
+            df_list = []
+            for i in range(5):
+                if i == cv:
+                    continue
+                filepath = os.path.join(base_dirpath, basename.format(i))
+                df_list.append(pd.read_csv(filepath))
+                print(split, i)
+            df = pd.concat(df_list, axis=0)
+        else:
+            # test
+            filepath = os.path.join(base_dirpath, basename.format(cv))
+            df = pd.read_csv(filepath)
+            print(split)
+
+
+        if gt_only or max_num_col == 1:
+            df = df[df["class_id"] > -1]
+
+
+        
+        data_list = []
+        
+        df['class_id'] = df['class_id'].astype(int)
+        df.drop(df[(df['data'].isna()) & (df['class_id'] == -1)].index, inplace=True)
+        df['col_idx'] = df['col_idx'].astype(int)
+        df['data'] = df['data'].astype(str)
+        
+        num_tables = len(df.groupby("table_id"))
+        valid_index = int(num_tables * 0.8)
+        num_train = int(train_ratio * num_tables * 0.8)        
+        
+        # df.drop(df[(df['data'] == '') & (df['class_id'] == -1)].index, inplace=True)
+        for i, (index, group_df) in enumerate(df.groupby("table_id")):
+            if (split == "train") and ((i >= num_train) or (i >= valid_index)):
+                break
+            if split == "valid" and i < valid_index:
+                continue
+            #     break
+            group_df.sort_values(by=['col_idx'], inplace=True)
+            labeled_columns = group_df[group_df['class_id'] > -1]
+            # if len(labeled_columns) > 1:
+            #     print("Here")
+            unlabeled_columns = group_df[group_df['class_id'] == -1]
+            for idx in labeled_columns.index:
+                token_ids_list = []
+                target_column = labeled_columns.loc[idx]
+                rest_columns = labeled_columns[labeled_columns.index != idx] # the rest of labeled columns
+                # tokenize target column
+                if context_encoding_type == "v1.2": # padding each column to make sure that each column is of equal length
+                    token_ids_list.append(tokenizer.encode(
+                    tokenizer.cls_token + " " + target_column["data"] + "[PAD]"*512, add_special_tokens=False, max_length=max_length, truncation=True))                    
+                else:
+                    token_ids_list.append(tokenizer.encode(
+                    tokenizer.cls_token + " " + target_column["data"], add_special_tokens=False, max_length=max_length, truncation=True))
+                # tokenize context
+                if not gt_only:
+                    unlabeled_columns = unlabeled_columns
+                else:
+                    unlabeled_columns  = unlabeled_columns.sample(0)
+                group_df = pd.concat([rest_columns, unlabeled_columns])
+                group_df = group_df[: max_num_col-1] if not random_sample  else group_df.sample(min(max_num_col-1, len(group_df))) # TODO
+                group_df.sort_values(by=['col_idx'], inplace=True)
+                
+                if adaptive_max_length and (len(group_df)+1) < max_num_col:
+                    cur_maxlen = 512 // (len(group_df)+1)
+                else:
+                    cur_maxlen = max_length
+                    
+                if context_encoding_type == "v0":
+                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    tokenizer.cls_token + " " + x, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
+                    )
+                elif context_encoding_type == "v0.1": # only one cls token to separate context and target
+                    token_ids_list.append([tokenizer.cls_token_id])
+                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    " " + x, add_special_tokens=False, max_length=cur_maxlen-1, truncation=True)).tolist(
+                    )                    
+                elif context_encoding_type == "v1":
+                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    tokenizer.sep_token + " " + x, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
+                    )                    
+                elif context_encoding_type == "v1.1": # only one cls token to separate context and target
+                    token_ids_list.append([tokenizer.sep_token_id])
+                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    " " + x, add_special_tokens=False, max_length=cur_maxlen-1, truncation=True)).tolist(
+                    )   
+                elif context_encoding_type == "v1.2": # padding each column to make sure that each column is of equal length
+                    assert len(token_ids_list[0]) == max_length
+                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    tokenizer.sep_token + " " + x + "[PAD]"*512, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
+                    )                  
+                else:
+                    raise ValueError("context_encoding_type {} is not supported".format(context_encoding_type))
+                if len(token_ids_list) < max_num_col:
+                    for _ in range(max_num_col - len(token_ids_list)):
+                        token_ids_list.append([tokenizer.pad_token_id]*max_length)
+                token_ids = torch.LongTensor(reduce(operator.add,
+                                                    token_ids_list)).to(device)
+                token_type_ids = torch.LongTensor([0 if i < max_length else 1 for i in range(len(token_ids))]).to(device)
+                cls_index_list = [0] 
+                for cls_index in cls_index_list:
+                    assert token_ids[
+                        cls_index] == tokenizer.cls_token_id, "cls_indexes validation"
+                cls_indexes = torch.LongTensor(cls_index_list).to(device)
+                class_ids = torch.LongTensor([target_column["class_id"]]
+                    ).to(device)
+                data_list.append(
+                    [index,
+                    len(group_df), token_ids, class_ids, cls_indexes, token_type_ids])
+        print(split, len(data_list))
+        self.table_df = pd.DataFrame(data_list,
+                                     columns=[
+                                         "table_id", "num_col", "data_tensor",
+                                         "label_tensor", "cls_indexes", "token_type_ids"
+                                     ])
+        """
+        # NOTE: msato contains a small portion of single-col tables. keep it to be consistent.  
+        if multicol_only:
+            # Check
+            num_all_tables = len(self.table_df)
+            self.table_df = self.table_df[self.table_df["num_col"] > 1]
+            assert len(self.table_df) == num_all_tables
+        """
+
+    def __len__(self):
+        return len(self.table_df)
+
+    def __getitem__(self, idx):
+        return {
+            "data": self.table_df.iloc[idx]["data_tensor"],
+            "label": self.table_df.iloc[idx]["label_tensor"],
+            "token_type_ids": self.table_df.iloc[idx]["token_type_ids"]
+        }
+        #"idx": torch.LongTensor([idx])}
+        #"cls_indexes": self.table_df.iloc[idx]["cls_indexes"]}
+        
+        
+        
+class GittablesColwiseDatasetDecoder(data.Dataset):
+    """This is for decoder-only archetecture LMs like Llama.
+    The input first is the context, seperated by eos token, the last tokens are the target column.
+    """
+    def __init__(
+            self,
+            cv: int,
+            split: str,
             src: str,  # train or test
             tokenizer: AutoTokenizer,
             max_length: int = 256,
@@ -1722,37 +2051,26 @@ class GittablesColwiseDataset(data.Dataset):
                 token_ids_list = []
                 target_column = labeled_columns.loc[idx]
                 rest_columns = labeled_columns[labeled_columns.index != idx] # the rest of labeled columns
-                # tokenize target column
-                token_ids_list.append(tokenizer.encode(
-                tokenizer.cls_token + " " + target_column["data"], add_special_tokens=False, max_length=max_length, truncation=True))
-                # tokenize context
+                # tokenize context first
                 if not gt_only:
                     unlabeled_columns = unlabeled_columns
                 else:
                     unlabeled_columns  = unlabeled_columns.sample(0)
                 group_df = pd.concat([rest_columns, unlabeled_columns])
                 group_df = group_df[: max_num_col-1] if not random_sample  else group_df.sample(min(max_num_col-1, len(group_df))) # TODO
-                group_df.sort_values(by=['col_idx'], inplace=True)
-                if context_encoding_type == "v0":
+                group_df.sort_values(by=['col_idx'], inplace=True)                
+                if context_encoding_type == "v1":
+                    # token_ids_list += [token_seq + [tokenizer.eos_token_id] for token_seq in group_df["data"].apply(lambda x: tokenizer.encode(
+                    # tokenizer.bos_token + " " + x, add_special_tokens=False, max_length=max_length-1, truncation=True)).tolist(
+                    # ) ]    
                     token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
-                    tokenizer.cls_token + " " + x, add_special_tokens=False, max_length=max_length, truncation=True)).tolist(
+                    tokenizer.bos_token + " " + x, add_special_tokens=False, max_length=max_length, truncation=True)).tolist(
                     )
-                elif context_encoding_type == "v0.1": # only one cls token to separate context and target
-                    token_ids_list.append([tokenizer.cls_token_id])
-                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
-                    " " + x, add_special_tokens=False, max_length=max_length-1, truncation=True)).tolist(
-                    )                    
-                elif context_encoding_type == "v1":
-                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
-                    tokenizer.sep_token + " " + x, add_special_tokens=False, max_length=max_length, truncation=True)).tolist(
-                    )                    
-                elif context_encoding_type == "v1.1": # only one cls token to separate context and target
-                    token_ids_list.append([tokenizer.sep_token_id])
-                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
-                    " " + x, add_special_tokens=False, max_length=max_length-1, truncation=True)).tolist(
-                    )   
                 else:
                     raise ValueError("context_encoding_type {} is not supported".format(context_encoding_type))
+                # tokenize target column then
+                token_ids_list.append(tokenizer.encode(
+                tokenizer.bos_token + " " + target_column["data"], add_special_tokens=False, max_length=max_length, truncation=True))
                 token_ids = torch.LongTensor(reduce(operator.add,
                                                     token_ids_list)).to(device)
                 cls_index_list = [0] 
@@ -1790,7 +2108,7 @@ class GittablesColwiseDataset(data.Dataset):
         }
         #"idx": torch.LongTensor([idx])}
         #"cls_indexes": self.table_df.iloc[idx]["cls_indexes"]}
-
+        
 class GittablesCVTablewiseDataset(data.Dataset):
 
     def __init__(
