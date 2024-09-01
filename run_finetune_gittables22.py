@@ -54,7 +54,7 @@ comment = "max-unlabeled@{}".format(max_unlabeled)
 #     subprocess.run(cmd, shell=True, check=True)
 max_unlabeled = 2
 comment = "max-unlabeled@{}".format(max_unlabeled)
-for task in ['gt-semtab22-dbpedia-all0', 'gt-semtab22-dbpedia-all1']:
+for task in ['gt-semtab22-dbpedia-all0']:
     cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py --wandb True \
                 --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --batch_size {} --epoch {} \
                 --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(

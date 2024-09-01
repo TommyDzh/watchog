@@ -33,16 +33,15 @@ ml = 64  # 32
 gpus = '1'
 pool = 'v0'
 rand = False
-use_token_type_ids = True
-sampling_method = 'bm25'
+use_token_type_ids = False
 ctype = "v1.2"
-for max_num_col in [4, 8]:
-    comment = "pool@{}-context@{}-max_num_col@{}-use_token_type@{}-sampling_method@{}".format(pool, ctype, max_num_col, use_token_type_ids, sampling_method)
+for max_num_col in [4]:
+    comment = "pool@{}-context@{}-max_num_col@{}-use_token_type@{}".format(pool, ctype, max_num_col, use_token_type_ids)
     for task in ['gt-semtab22-dbpedia-all0']:
         cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_colwise.py --wandb True  \
-                    --shortcut_name {} --task {} --max_length {} --max_num_col {} --context_encoding_type {} --pool_version {} --sampling_method {} --batch_size {} --use_token_type_ids {} --epoch {} \
+                    --shortcut_name {} --task {} --max_length {} --max_num_col {} --context_encoding_type {} --pool_version {} --batch_size {} --use_token_type_ids {} --epoch {} \
                     --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
-            gpus, base_model, task, ml, max_num_col, ctype, pool, sampling_method, bs, use_token_type_ids, n_epochs, dropout_prob,
+            gpus, base_model, task, ml, max_num_col, ctype, pool, bs, use_token_type_ids, n_epochs, dropout_prob,
             ckpt_path, cl_tag, small_tag, comment,
             '--colpair' if colpair else '',
             '--from_scratch' if from_scratch else '',        

@@ -37,21 +37,9 @@ cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py \
     '--eval_test' if eval_test else ''
 )
             
-cmd1 = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py \
-            --shortcut_name {} --task {} --max_length {} --batch_size {} --epoch {} \
-            --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
-    gpus, base_model, task, ml, bs, n_epochs, dropout_prob,
-    ckpt_path, cl_tag, small_tag, "",
-    '--colpair' if colpair else '',
-    '--from_scratch' if True else '',        
-    '--eval_test' if eval_test else ''
-)
-   
+
 
 # os.system('{} & '.format(cmd))
 subprocess.run(cmd, shell=True, check=True)
 
-# Run cmd1 after cmd finishes
-subprocess.run(cmd1, shell=True, check=True)
-         
-        
+

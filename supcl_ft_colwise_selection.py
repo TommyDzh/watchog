@@ -29,8 +29,8 @@ from watchog.dataset import (
     ColPoplTablewiseDataset
 )
 
-from watchog.dataset import TableDataset, SupCLTableDataset, SemtableCVTablewiseDataset, GittablesColwiseDataset, GittablesCVTablewiseDataset
-from watchog.model import BertMultiPairPooler, BertForMultiOutputClassification, BertForMultiOutputClassificationColPopl
+from watchog.dataset import TableDataset, SupCLTableDataset, SemtableCVTablewiseDataset, GittablesColwiseMaxDataset, GittablesColwiseMaxDataset
+from watchog.model import BertMultiPairPooler, BertForMultiOutputClassification, BertForMultiOutputClassificationColPopl, BertForMultiSelectionClassification
 from watchog.model import SupCLforTable, UnsupCLforTable, lm_mp
 from watchog.utils import load_checkpoint, f1_score_multilabel, collate_fn, get_col_pred, ColPoplEvaluator
 from watchog.utils import task_num_class_dict
@@ -48,13 +48,16 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--wandb", type=bool, default=False)
-    parser.add_argument("--repeat", type=int, default=5)
     parser.add_argument("--model", type=str, default="Watchog")
+    parser.add_argument("--external_table_embedding", type=bool, default=True)
     parser.add_argument("--unlabeled_train_only", type=bool, default=False)
     parser.add_argument("--context_encoding_type", type=str, default="v0")
     parser.add_argument("--pool_version", type=str, default="v0.2")
-    parser.add_argument("--sampling_method", type=str, default=None)
+    parser.add_argument("--random_sample", type=bool, default=False)
     parser.add_argument("--use_token_type_ids", type=bool, default=False)
+    parser.add_argument("--tau", type=float, default=0.5)
+    parser.add_argument("--target_num_col", type=int, default=4)
+    parser.add_argument("--gate_version", type=str, default="v0")
     parser.add_argument("--comment", type=str, default="debug", help="to distinguish the runs")
     parser.add_argument(
         "--shortcut_name",
@@ -214,7 +217,7 @@ if __name__ == "__main__":
     if args.from_scratch:
         if "gt" in task:
             tag_name = "{}/{}-{}-{}-pool{}-max_cols{}-rand{}-bs{}-ml{}-ne{}-do{}{}".format(
-                taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag, args.comment, args.pool_version, args.max_num_col, args.sampling_method,
+                taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag, args.comment, args.pool_version, args.max_num_col, args.random_sample,
                 batch_size, max_length, num_train_epochs, args.dropout_prob, 
                 '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
         else:
@@ -226,7 +229,7 @@ if __name__ == "__main__":
     else:
         if "gt" in task:
             tag_name = "{}/{}_{}-pool{}-max_cols{}-rand{}-bs{}-ml{}-ne{}-do{}{}".format(
-                taskname, args.cl_tag.replace('/', '-'),  shortcut_name, args.small_tag, args.pool_version, args.max_num_col, args.sampling_method,
+                taskname, args.cl_tag.replace('/', '-'),  shortcut_name, args.small_tag, args.pool_version, args.max_num_col, args.random_sample,
                 batch_size, max_length, num_train_epochs, args.dropout_prob,
                 '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
         else:
@@ -276,7 +279,8 @@ if __name__ == "__main__":
     elif "col-popl" in task:
         model = BertForMultiOutputClassificationColPopl(ckpt_hp, device=device, lm=ckpt['hp'].lm, n_seed_cols=int(task[i][-1]), cls_for_md="md" in task)
     else:
-        model = BertForMultiOutputClassification(ckpt_hp, device=device, lm=ckpt['hp'].lm, version=args.pool_version)
+        model = BertForMultiSelectionClassification(ckpt_hp, device=device, lm=ckpt['hp'].lm, version=args.pool_version, 
+                                                    tau=args.tau, max_num_cols=args.max_num_col, target_num_cols=args.target_num_col, num_tokens_per_col=max_length, gate_version=args.gate_version)
         
 
     if not args.from_scratch:
@@ -305,7 +309,7 @@ if __name__ == "__main__":
             else:
                 multicol_only = False
 
-            dataset_cls = GittablesColwiseDataset
+            dataset_cls = GittablesColwiseMaxDataset
             train_dataset = dataset_cls(cv=cv,
                                         split="train",
                                         tokenizer=tokenizer,
@@ -315,10 +319,10 @@ if __name__ == "__main__":
                                         small_tag=''.join([i for i in args.task if not i.isdigit()]),
                                         base_dirpath=os.path.join(args.data_path, "doduo", "data"), 
                                         max_num_col=args.max_num_col,
-                                        sampling_method=args.sampling_method,
-                                        random_seed=args.random_seed,
+                                        random_sample=args.random_sample,
                                         context_encoding_type=args.context_encoding_type,
-                                        adaptive_max_length=args.adaptive_max_length                                       
+                                        adaptive_max_length=args.adaptive_max_length,
+                                        return_table_embedding=args.external_table_embedding                                  
                                         )
             valid_dataset = dataset_cls(cv=cv,
                                         split="valid",
@@ -329,10 +333,10 @@ if __name__ == "__main__":
                                         small_tag=''.join([i for i in args.task if not i.isdigit()]),
                                         base_dirpath=os.path.join(args.data_path, "doduo", "data"),
                                         max_num_col=args.max_num_col,
-                                        sampling_method=args.sampling_method,
-                                        random_seed=args.random_seed,
+                                        random_sample=args.random_sample,
                                         context_encoding_type=args.context_encoding_type,
-                                        adaptive_max_length=args.adaptive_max_length                                            )
+                                        adaptive_max_length=args.adaptive_max_length,
+                                        return_table_embedding=args.external_table_embedding)
 
             train_sampler = RandomSampler(train_dataset)
             train_dataloader = DataLoader(train_dataset,
@@ -352,10 +356,10 @@ if __name__ == "__main__":
                                         small_tag=''.join([i for i in args.task if not i.isdigit()]),
                                         base_dirpath=os.path.join(args.data_path, "doduo", "data"),
                                         max_num_col=args.max_num_col,
-                                        sampling_method=args.sampling_method,
-                                        random_seed=args.random_seed,
+                                        random_sample=args.random_sample,
                                         context_encoding_type=args.context_encoding_type,
-                                        adaptive_max_length=args.adaptive_max_length    )
+                                        adaptive_max_length=args.adaptive_max_length,
+                                        return_table_embedding=args.external_table_embedding)
             test_dataloader = DataLoader(test_dataset,
                                             batch_size=batch_size,
                                             collate_fn=padder)   
@@ -376,7 +380,7 @@ if __name__ == "__main__":
                     src = 'schema'
             if task[-1] in "01234":
                 cv = int(task[-1])
-                dataset_cls = GittablesColwiseDataset
+                dataset_cls = GittablesColwiseMaxDataset
                 train_dataset = dataset_cls(cv=cv,
                                             split="train",
                                             tokenizer=tokenizer,
@@ -386,23 +390,23 @@ if __name__ == "__main__":
                                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                             small_tag=args.small_tag,
                                             max_num_col=args.max_num_col,
-                                            sampling_method=args.sampling_method,
-                                            random_seed=args.random_seed,
+                                            random_sample=args.random_sample,
                                             context_encoding_type=args.context_encoding_type,
-                                            adaptive_max_length=args.adaptive_max_length)
+                                            adaptive_max_length=args.adaptive_max_length,
+                                            return_table_embedding=args.external_table_embedding)
                 valid_dataset = dataset_cls(cv=cv,
-                                            split="valid",
+                                            split="valid", 
                                             tokenizer=tokenizer,
                                             max_length=max_length,
-                                            gt_only='all' not in task,
+                                            gt_only='all' not in task or args.unlabeled_train_only,
                                             device=device,
                                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                             small_tag=args.small_tag,
                                             max_num_col=args.max_num_col,
-                                            sampling_method=args.sampling_method,
-                                            random_seed=args.random_seed,
                                             context_encoding_type=args.context_encoding_type,
-                                            adaptive_max_length=args.adaptive_max_length)
+                                            adaptive_max_length=args.adaptive_max_length,
+                                            return_table_embedding=args.external_table_embedding,
+                                            )
 
                 train_sampler = RandomSampler(train_dataset)
                 train_dataloader = DataLoader(train_dataset,
@@ -415,23 +419,22 @@ if __name__ == "__main__":
                                             #   collate_fn=collate_fn)
                                             collate_fn=padder)
                 test_dataset = dataset_cls(cv=cv,
-                                            split="test",
+                                           split="test", 
                                             tokenizer=tokenizer,
                                             max_length=max_length,
-                                            gt_only='all' not in task,
+                                            gt_only='all' not in task or args.unlabeled_train_only,
                                             device=device,
                                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                             small_tag=args.small_tag,
                                             max_num_col=args.max_num_col,
-                                            sampling_method=args.sampling_method,
-                                            random_seed=args.random_seed,
                                             context_encoding_type=args.context_encoding_type,
-                                            adaptive_max_length=args.adaptive_max_length)
+                                            adaptive_max_length=args.adaptive_max_length,
+                                            return_table_embedding=args.external_table_embedding)
                 test_dataloader = DataLoader(test_dataset,
                                                 batch_size=batch_size//2,
                                                 collate_fn=padder)    
             else:
-                dataset_cls = GittablesColwiseDataset
+                dataset_cls = GittablesColwiseMaxDataset
                 train_dataset = dataset_cls(split="train",
                                             src=src,
                                             tokenizer=tokenizer,
@@ -691,7 +694,9 @@ if __name__ == "__main__":
                 tr_pred_list.update(all_preds)
                 loss = loss_fn(logits, labels_1d)
             else:
-                logits = model(batch["data"].T, cls_indexes=cls_indexes, token_type_ids=batch["token_type_ids"].T if args.use_token_type_ids else None)
+                logits = model(batch["data"].T, cls_indexes=cls_indexes, 
+                               token_type_ids=batch["token_type_ids"].T if args.use_token_type_ids else None,
+                               column_embeddings=batch['table_embedding'] if args.external_table_embedding else None)
                 
                 # if len(logits.shape) == 2:
                 #     logits = logits.unsqueeze(0)
@@ -792,7 +797,9 @@ if __name__ == "__main__":
                     vl_pred_list.update(all_preds)
                     loss = loss_fn(logits, labels_1d)
                 else:
-                    logits = model(batch["data"].T, cls_indexes=cls_indexes, token_type_ids=batch["token_type_ids"].T if args.use_token_type_ids else None)
+                    logits = model(batch["data"].T, cls_indexes=cls_indexes, 
+                                   token_type_ids=batch["token_type_ids"].T if args.use_token_type_ids else None,
+                                   column_embeddings=batch['table_embedding'] if args.external_table_embedding else None)
                     # if len(logits.shape) == 2:
                     #     logits = logits.unsqueeze(0)
                     # logits = torch.zeros(cls_indexes.shape[0],
@@ -958,7 +965,9 @@ if __name__ == "__main__":
                 ts_pred_list.update(all_preds)
                 
             else:
-                logits = model(batch["data"].T, cls_indexes=cls_indexes, token_type_ids=batch["token_type_ids"].T if args.use_token_type_ids else None).cpu()
+                logits = model(batch["data"].T, cls_indexes=cls_indexes, 
+                               token_type_ids=batch["token_type_ids"].T if args.use_token_type_ids else None,
+                               column_embeddings=batch['table_embedding'] if args.external_table_embedding else None).cpu()
                 # if len(logits.shape) == 2:
                 #     logits = logits.unsqueeze(0)
                 # logits = torch.zeros(cls_indexes.shape[0],

@@ -690,9 +690,13 @@ class SubsetOperator(torch.nn.Module):
 
     def forward(self, scores):
         assert len(scores.shape) == 2
-        m = torch.distributions.gumbel.Gumbel(torch.zeros_like(scores), torch.ones_like(scores))
-        g = m.sample()
-        scores = scores + g
+        # Add noise by sampling from Gumbel distribution
+        # v0: training & eval with noise
+        # v1: training with noise, eval without noise
+        if self.training:
+            m = torch.distributions.gumbel.Gumbel(torch.zeros_like(scores), torch.ones_like(scores))
+            g = m.sample()
+            scores = scores + g
 
         # continuous top k
         khot = torch.zeros_like(scores)
@@ -759,6 +763,62 @@ class BertForMultiSelectionClassification(nn.Module):
                 nn.SiLU(),
                 nn.Linear(hidden_size, 1)
             )
+        elif gate_version == 'v0.2':
+            self.gate = nn.Sequential(
+                nn.Linear(2*hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Dropout(p=0.5),
+                nn.Linear(hidden_size, 1)
+            )          
+        elif gate_version == 'v1.1' or gate_version == 'v2.1':
+            self.gate = nn.Sequential(
+                nn.Linear(3*hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Linear(hidden_size, 1)
+            )
+        elif gate_version == 'v1.2' or gate_version == 'v2.2':
+            self.gate = nn.Sequential(
+                nn.Linear(3*hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Dropout(p=0.5),
+                nn.Linear(hidden_size, 1)
+            )
+        elif gate_version == 'v3.1':
+            self.gate = nn.Sequential(
+                nn.Linear(4*hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Linear(hidden_size, 1)
+            )    
+        elif gate_version == 'v3.2':
+            self.gate = nn.Sequential(
+                nn.Linear(4*hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Dropout(p=0.5),
+                nn.Linear(hidden_size, 1)
+            )
+        elif gate_version == 'v4.1' or gate_version == 'v5.1':
+            self.gate = nn.Sequential(
+                nn.Linear(hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Linear(hidden_size, 1)
+            )            
+        elif gate_version == 'v4.2' or gate_version == 'v5.2':
+            self.gate = nn.Sequential(
+                nn.Linear(hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Dropout(p=0.5),
+                nn.Linear(hidden_size, 1)
+            )
+        else:
+            raise ValueError(f"Invalid gate version: {gate_version}")
+
     def load_from_CL_model(self, model):
         '''load from models pre-trained with contrastive learning'''
         self.bert = model.bert
@@ -769,40 +829,61 @@ class BertForMultiSelectionClassification(nn.Module):
         self,
         input_ids=None,
         get_enc=False,
+        return_gates=False,
         cls_indexes=None,
         token_type_ids=None,
+        column_embeddings=None,
     ):
         device = input_ids.device
         B = input_ids.size(0)
         N = self.N
         M = self.M
         num_tokens_per_col = self.num_tokens_per_col
+        assert num_tokens_per_col * N <= input_ids.size(1) 
         D = self.hidden_size
         
         # Select top M columns
         split_ids = input_ids.split(num_tokens_per_col, dim=1)
-        table_embedding = []
+        token_embedding = []
         for i in range(N):
             if i == 0:
-                table_embedding.append(self.bert.embeddings(split_ids[i], token_type_ids=torch.zeros_like(split_ids[i], device=device)))
+                token_embedding.append(self.bert.embeddings(split_ids[i], token_type_ids=torch.zeros_like(split_ids[i], device=device)))
             else:
-                table_embedding.append(self.bert.embeddings(split_ids[i], token_type_ids=torch.ones_like(split_ids[i], device=device)))
-        table_embedding = torch.cat(table_embedding, dim=1)
-        token_col_indexes = torch.cat([torch.tensor([i]*num_tokens_per_col) for i in range(N)]).to(device) # [0, 0, ..., 1, 1, ..., 2, 2, ..., N-1, N-1, ..., N-1]
+                token_embedding.append(self.bert.embeddings(split_ids[i], token_type_ids=torch.ones_like(split_ids[i], device=device)))
+        token_embedding = torch.cat(token_embedding, dim=1)
         col_to_token = torch.eye(N, device=device, dtype=torch.float) \
                     .unsqueeze(-1).repeat(1, 1, num_tokens_per_col).transpose(1, 2).flatten(0, 1) \
                     .transpose(0, 1)[1:, :].unsqueeze(0).repeat(B, 1, 1) # (B, N-1, L) [1, ,1 ,1 , ..., 1, 0, 0, ..., 0, 0, 0], ...,  [0, 0, 0, ..., 0, 1, 1, ..., 1]
-        column_embeddings = scatter(table_embedding, token_col_indexes, dim=1, reduce="mean") # (B, N, D)
+        if column_embeddings is None:
+            token_col_indexes = torch.cat([torch.tensor([i]*num_tokens_per_col) for i in range(N)]).to(device) # [0, 0, ..., 1, 1, ..., 2, 2, ..., N-1, N-1, ..., N-1]
+            column_embeddings = scatter(token_embedding, token_col_indexes, dim=1, reduce="mean") # (B, N, D)
+        # TODO: add PE for column embeddings
         target_column_embeddings, context_column_embeddings = column_embeddings[:, 0, :].unsqueeze(1),  column_embeddings[:, 1:, :]# (B, M, D)
         target_column_embeddings = target_column_embeddings.repeat(1, context_column_embeddings.shape[1], 1) # (B, N, D)
-        context_embeddings = torch.cat([target_column_embeddings, context_column_embeddings], dim=-1) # (B, N, D)
-        
+        if self.gate_version.startswith('v0'):
+            context_embeddings = torch.cat([target_column_embeddings, context_column_embeddings], dim=-1) # (B, N, D)
+        elif self.gate_version.startswith('v1'):
+            diff_embeddings = torch.abs(target_column_embeddings - context_column_embeddings)
+            context_embeddings = torch.cat([target_column_embeddings, context_column_embeddings, diff_embeddings], dim=-1) # (B, N, D)
+        elif self.gate_version.startswith('v2'):
+            dot_embeddings = target_column_embeddings * context_column_embeddings
+            context_embeddings = torch.cat([target_column_embeddings, context_column_embeddings, dot_embeddings], dim=-1) # (B, N, D)
+        elif self.gate_version.startswith('v3'):
+            diff_embeddings = torch.abs(target_column_embeddings - context_column_embeddings)
+            dot_embeddings = target_column_embeddings * context_column_embeddings
+            context_embeddings = torch.cat([target_column_embeddings, context_column_embeddings, diff_embeddings, dot_embeddings], dim=-1) # (B, N, D)
+        elif self.gate_version.startswith('v4'):
+            context_embeddings = torch.abs(target_column_embeddings - context_column_embeddings)
+        elif self.gate_version.startswith('v5'):
+            context_embeddings = target_column_embeddings * context_column_embeddings
+        else:
+            raise ValueError(f"Invalid gate version: {self.gate_version}")
         column_logits = self.gate(context_embeddings).squeeze() # (B, N)
         gates = self.sampler(column_logits) # (B, M)
         chosen_mask = torch.matmul(gates.unsqueeze(1), col_to_token).squeeze(1).unsqueeze(-1) # (B, N, 1)
-        chosen_embeddings = table_embedding * chosen_mask 
+        chosen_embeddings = token_embedding * chosen_mask 
         chosen_embeddings = chosen_embeddings[chosen_mask.detach().bool().expand_as(chosen_embeddings)].view(B, -1, D)
-        embedding_output = torch.cat([table_embedding[:, :num_tokens_per_col, :], chosen_embeddings], dim=1)
+        embedding_output = torch.cat([token_embedding[:, :num_tokens_per_col, :], chosen_embeddings], dim=1)
         
         bert_output = self.attn_forward(embedding_output)
         
@@ -813,11 +894,12 @@ class BertForMultiSelectionClassification(nn.Module):
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
         
-
+        outputs = [logits] 
         if get_enc:
-            outputs = (logits, pooled_output)
-        else:
-            outputs = logits
+            outputs.append(pooled_output)
+        if return_gates:
+            outputs.append(gates.clone().detach().cpu())
+
         return outputs  # (loss), logits, (hidden_states), (attentions)
     
     def attn_forward(

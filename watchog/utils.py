@@ -101,6 +101,9 @@ def collate_fn(pad_token_id, data_only=True):
             token_type_ids = torch.nn.utils.rnn.pad_sequence(
                 [sample["token_type_ids"] for sample in samples], padding_value=1)
             batch["token_type_ids"] = token_type_ids
+        if "table_embedding" in samples[0]:
+            table_embeddings = [sample["table_embedding"] for sample in samples]
+            batch["table_embedding"] = torch.stack(table_embeddings, dim=0)
         return batch
         
     return padder
@@ -225,4 +228,36 @@ class ColPoplEvaluator():
         avg_ndcg_20 = sum(map(lambda x: x['ndcg_cut_20'], eval_res.values())) / len(eval_res)
         # avg_ndcg_20 = sum(map(lambda x: x['ndcg_cut_10'], eval_res.values())) / len(eval_res)
         return avg_map, avg_rpr, avg_ndcg_10, avg_ndcg_20, eval_res
-            
+
+
+
+import string
+import re
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import PorterStemmer
+
+# Load NLTK resources
+import nltk
+nltk.download('punkt')
+nltk.download('stopwords')
+text = "BM25 is a ranking function used in information retrieval. It's effective for search engines!"
+def preprocess_text(text):
+    # Lowercase the text
+    text = text.lower()
+
+    # Remove punctuation
+    # Create a translation table where all punctuation is replaced with spaces
+    translation_table = str.maketrans(string.punctuation, ' ' * len(string.punctuation))
+
+    # Replace all punctuation in the text with spaces
+    text = text.translate(translation_table)
+    # print(text)
+
+    # Tokenize the text
+    tokens = text.split()
+    # Remove stopwords
+    stop_words = set(stopwords.words('english'))
+    tokens = [word for word in tokens if word not in stop_words]
+    processed_text = ' '.join(tokens)
+    return processed_text

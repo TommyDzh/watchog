@@ -1648,6 +1648,12 @@ class GittablesTablewiseDataset(data.Dataset):
         #"cls_indexes": self.table_df.iloc[idx]["cls_indexes"]}
 
 
+
+
+
+from watchog.utils import preprocess_text
+from rank_bm25 import BM25Okapi
+
 class GittablesColwiseDataset(data.Dataset):
     def __init__(
             self,
@@ -1662,7 +1668,8 @@ class GittablesColwiseDataset(data.Dataset):
             small_tag: str = "",
             train_ratio: float = 1.0,
             max_num_col=8,
-            random_sample=False, # TODO
+            sampling_method=None, # TODO
+            random_seed=0,
             train_only=True,
             context_encoding_type="v1",
             adaptive_max_length=False,
@@ -1670,10 +1677,11 @@ class GittablesColwiseDataset(data.Dataset):
         if device is None:
             device = torch.device('cpu')
         basename = small_tag+ "_cv_{}.csv"
+        print(basename,  max_num_col, max_length, sampling_method, context_encoding_type, adaptive_max_length)
         assert max_num_col >= 1, "max_num_col must be greater than 1"
         # assert 512//max_num_col >= max_length  , "max_length cannot be smaller than 512//max_num_col"
         # assert random_sample and split == "train" can't be true at the same time
-        assert not (random_sample and split != "train"), "random_sample and split != train can't be true at the same time"
+        # assert not (sampling_method=="random" and split != "train"), "random_sample and split != train can't be true at the same time"
         if split in ["train", "valid"]:
             df_list = []
             for i in range(5):
@@ -1681,13 +1689,13 @@ class GittablesColwiseDataset(data.Dataset):
                     continue
                 filepath = os.path.join(base_dirpath, basename.format(i))
                 df_list.append(pd.read_csv(filepath))
-                print(split, i)
+                # print(split, i)
             df = pd.concat(df_list, axis=0)
         else:
             # test
             filepath = os.path.join(base_dirpath, basename.format(cv))
             df = pd.read_csv(filepath)
-            print(split)
+            # print(split)
 
 
         if gt_only or max_num_col == 1:
@@ -1713,11 +1721,22 @@ class GittablesColwiseDataset(data.Dataset):
             if split == "valid" and i < valid_index:
                 continue
             #     break
+            
             group_df.sort_values(by=['col_idx'], inplace=True)
             labeled_columns = group_df[group_df['class_id'] > -1]
             # if len(labeled_columns) > 1:
             #     print("Here")
             unlabeled_columns = group_df[group_df['class_id'] == -1]
+            # Preprocessing for bm25, sentenceBERT sampling
+            if sampling_method == "bm25":
+                processed_texts = group_df["data"].apply(lambda x: preprocess_text(x)).to_list()
+                processed_texts = [x.split() for x in processed_texts]
+                try:
+                    bm25 = BM25Okapi(processed_texts)
+                except:
+                    processed_texts = group_df["data"].apply(lambda x: x.split()).to_list()
+                    bm25 = BM25Okapi(processed_texts)
+            
             for idx in labeled_columns.index:
                 token_ids_list = []
                 target_column = labeled_columns.loc[idx]
@@ -1734,36 +1753,52 @@ class GittablesColwiseDataset(data.Dataset):
                     unlabeled_columns = unlabeled_columns
                 else:
                     unlabeled_columns  = unlabeled_columns.sample(0)
-                group_df = pd.concat([rest_columns, unlabeled_columns])
-                group_df = group_df[: max_num_col-1] if not random_sample  else group_df.sample(min(max_num_col-1, len(group_df))) # TODO
-                group_df.sort_values(by=['col_idx'], inplace=True)
+                temp_group_df = pd.concat([rest_columns, unlabeled_columns])
                 
-                if adaptive_max_length and (len(group_df)+1) < max_num_col:
-                    cur_maxlen = 512 // (len(group_df)+1)
+                # Sampling context columns
+                if sampling_method is None or sampling_method == "None":
+                    temp_group_df = temp_group_df[: max_num_col-1]
+                    temp_group_df.sort_values(by=['col_idx'], inplace=True)
+                elif sampling_method == "random":
+                    temp_group_df = temp_group_df.sample(min(max_num_col-1, len(temp_group_df)), random_state=random_seed)
+                    temp_group_df.sort_values(by=['col_idx'], inplace=True)
+                elif sampling_method == "bm25":
+                    target_text = group_df["data"].loc[idx]
+                    target_text = preprocess_text(target_text).split()
+                    temp_group_df = group_df.iloc[torch.tensor(bm25.get_scores(target_text)).argsort(descending=True, stable=True)[1:max_num_col].tolist()]
+                else:
+                    raise ValueError("sampling_method {} is not supported".format(sampling_method))
+                    
+                    
+                    
+                
+                
+                if adaptive_max_length and (len(temp_group_df)+1) < max_num_col:
+                    cur_maxlen = 512 // (len(temp_group_df)+1)
                 else:
                     cur_maxlen = max_length
                     
                 if context_encoding_type == "v0":
-                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    token_ids_list += temp_group_df["data"].apply(lambda x: tokenizer.encode(
                     tokenizer.cls_token + " " + x, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
                     )
                 elif context_encoding_type == "v0.1": # only one cls token to separate context and target
                     token_ids_list.append([tokenizer.cls_token_id])
-                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    token_ids_list += temp_group_df["data"].apply(lambda x: tokenizer.encode(
                     " " + x, add_special_tokens=False, max_length=cur_maxlen-1, truncation=True)).tolist(
                     )                    
                 elif context_encoding_type == "v1":
-                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    token_ids_list += temp_group_df["data"].apply(lambda x: tokenizer.encode(
                     tokenizer.sep_token + " " + x, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
                     )                    
                 elif context_encoding_type == "v1.1": # only one cls token to separate context and target
                     token_ids_list.append([tokenizer.sep_token_id])
-                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    token_ids_list += temp_group_df["data"].apply(lambda x: tokenizer.encode(
                     " " + x, add_special_tokens=False, max_length=cur_maxlen-1, truncation=True)).tolist(
                     )   
                 elif context_encoding_type == "v1.2": # padding each column to make sure that each column is of equal length
                     assert len(token_ids_list[0]) == max_length
-                    token_ids_list += group_df["data"].apply(lambda x: tokenizer.encode(
+                    token_ids_list += temp_group_df["data"].apply(lambda x: tokenizer.encode(
                     tokenizer.sep_token + " " + x + "[PAD]"*512, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
                     )                  
                 else:
@@ -1780,7 +1815,7 @@ class GittablesColwiseDataset(data.Dataset):
                     ).to(device)
                 data_list.append(
                     [index,
-                    len(group_df), token_ids, class_ids, cls_indexes, token_type_ids])
+                    len(temp_group_df), token_ids, class_ids, cls_indexes, token_type_ids])
         print(split, len(data_list))
         self.table_df = pd.DataFrame(data_list,
                                      columns=[
@@ -1808,7 +1843,7 @@ class GittablesColwiseDataset(data.Dataset):
         #"idx": torch.LongTensor([idx])}
         #"cls_indexes": self.table_df.iloc[idx]["cls_indexes"]}
         
-        
+from sentence_transformers import SentenceTransformer
 class GittablesColwiseMaxDataset(data.Dataset):
     def __init__(
             self,
@@ -1827,10 +1862,16 @@ class GittablesColwiseMaxDataset(data.Dataset):
             train_only=True,
             context_encoding_type="v1",
             adaptive_max_length=False,
+            return_table_embedding=False,
             ): # TODO: not used
         if device is None:
             device = torch.device('cpu')
+        self.device = device
+        self.return_table_embedding = return_table_embedding
+        if return_table_embedding:
+            setence_encoder = SentenceTransformer("all-mpnet-base-v2", cache_folder="/data/zhihao/TU/Watchog/sentence_transformers_cache", device=device)
         basename = small_tag+ "_cv_{}.csv"
+        print(basename,  max_num_col)
         assert max_num_col >= 1, "max_num_col must be greater than 1"
         # assert 512//max_num_col >= max_length  , "max_length cannot be smaller than 512//max_num_col"
         # assert random_sample and split == "train" can't be true at the same time
@@ -1842,13 +1883,13 @@ class GittablesColwiseMaxDataset(data.Dataset):
                     continue
                 filepath = os.path.join(base_dirpath, basename.format(i))
                 df_list.append(pd.read_csv(filepath))
-                print(split, i)
+                # print(split, i)
             df = pd.concat(df_list, axis=0)
         else:
             # test
             filepath = os.path.join(base_dirpath, basename.format(cv))
             df = pd.read_csv(filepath)
-            print(split)
+            # print(split)
 
 
         if gt_only or max_num_col == 1:
@@ -1890,6 +1931,7 @@ class GittablesColwiseMaxDataset(data.Dataset):
                 else:
                     token_ids_list.append(tokenizer.encode(
                     tokenizer.cls_token + " " + target_column["data"], add_special_tokens=False, max_length=max_length, truncation=True))
+                
                 # tokenize context
                 if not gt_only:
                     unlabeled_columns = unlabeled_columns
@@ -1942,11 +1984,33 @@ class GittablesColwiseMaxDataset(data.Dataset):
                 cls_indexes = torch.LongTensor(cls_index_list).to(device)
                 class_ids = torch.LongTensor([target_column["class_id"]]
                     ).to(device)
-                data_list.append(
-                    [index,
-                    len(group_df), token_ids, class_ids, cls_indexes, token_type_ids])
+                if return_table_embedding:
+                    target_embedding = setence_encoder.encode([target_column["data"]])
+
+                    if len(group_df) > 0:
+                        context_embedding = setence_encoder.encode(group_df["data"].to_list())
+                    else:
+                        context_embedding = np.zeros_like(target_embedding)
+                    if len(context_embedding) < max_num_col-1:
+                        context_embedding = np.concatenate([context_embedding, np.zeros((max_num_col-1-len(context_embedding), target_embedding.shape[1]))], axis=0)
+
+                    table_embedding = torch.tensor(np.concatenate([target_embedding, context_embedding], axis=0)).float()
+                    data_list.append(
+                        [index,
+                        len(group_df), token_ids, class_ids, cls_indexes, token_type_ids, table_embedding])
+                else:
+                    data_list.append(
+                        [index,
+                        len(group_df), token_ids, class_ids, cls_indexes, token_type_ids])
         print(split, len(data_list))
-        self.table_df = pd.DataFrame(data_list,
+        if return_table_embedding:
+            self.table_df = pd.DataFrame(data_list,
+                                     columns=[
+                                         "table_id", "num_col", "data_tensor",
+                                         "label_tensor", "cls_indexes", "token_type_ids", "table_embedding"
+                                     ])
+        else:
+            self.table_df = pd.DataFrame(data_list,
                                      columns=[
                                          "table_id", "num_col", "data_tensor",
                                          "label_tensor", "cls_indexes", "token_type_ids"
@@ -1964,11 +2028,14 @@ class GittablesColwiseMaxDataset(data.Dataset):
         return len(self.table_df)
 
     def __getitem__(self, idx):
-        return {
+        results = {
             "data": self.table_df.iloc[idx]["data_tensor"],
             "label": self.table_df.iloc[idx]["label_tensor"],
             "token_type_ids": self.table_df.iloc[idx]["token_type_ids"]
         }
+        if self.return_table_embedding:
+            results["table_embedding"] = self.table_df.iloc[idx]["table_embedding"].to(self.device)
+        return results
         #"idx": torch.LongTensor([idx])}
         #"cls_indexes": self.table_df.iloc[idx]["cls_indexes"]}
         
