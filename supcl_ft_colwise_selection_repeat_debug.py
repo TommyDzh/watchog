@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix, f1_score
 from collections import defaultdict
+from copy import deepcopy
 
 # import pytrec_eval
 import torch
@@ -17,7 +18,8 @@ from torch.utils.data import DataLoader, RandomSampler
 from transformers import BertTokenizer, BertForSequenceClassification, BertConfig, AutoTokenizer
 from transformers import AdamW, get_linear_schedule_with_warmup
 from accelerate import Accelerator
-from copy import deepcopy
+from torch_ema import ExponentialMovingAverage
+
 
 torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -29,8 +31,8 @@ from watchog.dataset import (
     ColPoplTablewiseDataset
 )
 
-from watchog.dataset import TableDataset, SupCLTableDataset, SemtableCVTablewiseDataset, GittablesColwiseDataset, GittablesCVTablewiseDataset
-from watchog.model import BertMultiPairPooler, BertForMultiOutputClassification, BertForMultiOutputClassificationColPopl
+from watchog.dataset import TableDataset, SupCLTableDataset, SemtableCVTablewiseDataset, GittablesColwiseMaxDataset, GittablesCVTablewiseDataset
+from watchog.model import BertMultiPairPooler, BertForMultiOutputClassification, BertForMultiSelectionDebugClassification
 from watchog.model import SupCLforTable, UnsupCLforTable, lm_mp
 from watchog.utils import load_checkpoint, f1_score_multilabel, collate_fn, get_col_pred, ColPoplEvaluator
 from watchog.utils import task_num_class_dict
@@ -48,13 +50,19 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--wandb", type=bool, default=False)
-    parser.add_argument("--repeat", type=int, default=5)
+    parser.add_argument("--repeat", type=int, default=1)
+    parser.add_argument("--external_table_embedding", type=bool, default=False)
     parser.add_argument("--model", type=str, default="Watchog")
     parser.add_argument("--unlabeled_train_only", type=bool, default=False)
     parser.add_argument("--context_encoding_type", type=str, default="v0")
-    parser.add_argument("--pool_version", type=str, default="v0.2")
+    parser.add_argument("--pool_version", type=str, default="v0")
     parser.add_argument("--sampling_method", type=str, default=None)
+    parser.add_argument("--hard_inference", type=bool, default=False)
+    parser.add_argument("--random_sample", type=bool, default=False)
     parser.add_argument("--use_token_type_ids", type=bool, default=False)
+    parser.add_argument("--tau", type=float, default=0.5)
+    parser.add_argument("--target_num_col", type=int, default=4)
+    parser.add_argument("--gate_version", type=str, default="v0")
     parser.add_argument("--comment", type=str, default="debug", help="to distinguish the runs")
     parser.add_argument(
         "--shortcut_name",
@@ -126,6 +134,9 @@ if __name__ == "__main__":
                         default=0.,
                         help="Warmup ratio")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
+    parser.add_argument("--grad_clip", type=float, default=None)
+    parser.add_argument("--ema_decay", type=float, default=None)
+    
     parser.add_argument("--task",
                         type=str,
                         default='gt-semtab22-dbpedia-all0',
@@ -288,7 +299,7 @@ if __name__ == "__main__":
             else:
                 multicol_only = False
 
-            dataset_cls = GittablesColwiseDataset
+            dataset_cls = GittablesColwiseMaxDataset
             train_dataset = dataset_cls(cv=cv,
                                         split="train",
                                         tokenizer=tokenizer,
@@ -298,10 +309,10 @@ if __name__ == "__main__":
                                         small_tag=''.join([i for i in args.task if not i.isdigit()]),
                                         base_dirpath=os.path.join(args.data_path, "doduo", "data"), 
                                         max_num_col=args.max_num_col,
-                                        sampling_method=args.sampling_method,
-                                        random_seed=args.random_seed,
+                                        random_sample=args.random_sample,
                                         context_encoding_type=args.context_encoding_type,
-                                        adaptive_max_length=args.adaptive_max_length                                       
+                                        adaptive_max_length=args.adaptive_max_length,
+                                        return_table_embedding=args.external_table_embedding                                           
                                         )
             valid_dataset = dataset_cls(cv=cv,
                                         split="valid",
@@ -310,13 +321,12 @@ if __name__ == "__main__":
                                         train_ratio=1.0,
                                         device=device,
                                         small_tag=''.join([i for i in args.task if not i.isdigit()]),
-                                        base_dirpath=os.path.join(args.data_path, "doduo", "data"), 
+                                        base_dirpath=os.path.join(args.data_path, "doduo", "data"),
                                         max_num_col=args.max_num_col,
-                                        sampling_method=args.sampling_method,
-                                        random_seed=args.random_seed,
+                                        random_sample=args.random_sample,
                                         context_encoding_type=args.context_encoding_type,
-                                        adaptive_max_length=args.adaptive_max_length                                       
-                                        )
+                                        adaptive_max_length=args.adaptive_max_length,
+                                        return_table_embedding=args.external_table_embedding)
 
             train_sampler = RandomSampler(train_dataset)
             train_dataloader = DataLoader(train_dataset,
@@ -332,16 +342,14 @@ if __name__ == "__main__":
                                         split="test",
                                         tokenizer=tokenizer,
                                         max_length=max_length,
-                                        train_ratio=1.0,
                                         device=device,
                                         small_tag=''.join([i for i in args.task if not i.isdigit()]),
-                                        base_dirpath=os.path.join(args.data_path, "doduo", "data"), 
+                                        base_dirpath=os.path.join(args.data_path, "doduo", "data"),
                                         max_num_col=args.max_num_col,
-                                        sampling_method=args.sampling_method,
-                                        random_seed=args.random_seed,
+                                        random_sample=args.random_sample,
                                         context_encoding_type=args.context_encoding_type,
-                                        adaptive_max_length=args.adaptive_max_length                                       
-                                        )
+                                        adaptive_max_length=args.adaptive_max_length,
+                                        return_table_embedding=args.external_table_embedding)
             test_dataloader = DataLoader(test_dataset,
                                             batch_size=batch_size,
                                             collate_fn=padder)   
@@ -362,7 +370,7 @@ if __name__ == "__main__":
                     src = 'schema'
             if task[-1] in "01234":
                 cv = int(task[-1])
-                dataset_cls = GittablesColwiseDataset
+                dataset_cls = GittablesColwiseMaxDataset
                 train_dataset = dataset_cls(cv=cv,
                                             split="train",
                                             tokenizer=tokenizer,
@@ -372,23 +380,23 @@ if __name__ == "__main__":
                                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                             small_tag=args.small_tag,
                                             max_num_col=args.max_num_col,
-                                            sampling_method=args.sampling_method,
-                                            random_seed=args.random_seed,
+                                            random_sample=args.random_sample,
                                             context_encoding_type=args.context_encoding_type,
-                                            adaptive_max_length=args.adaptive_max_length)
+                                            adaptive_max_length=args.adaptive_max_length,
+                                            return_table_embedding=args.external_table_embedding)
                 valid_dataset = dataset_cls(cv=cv,
-                                            split="valid",
+                                            split="valid", 
                                             tokenizer=tokenizer,
                                             max_length=max_length,
-                                            gt_only='all' not in task,
+                                            gt_only='all' not in task or args.unlabeled_train_only,
                                             device=device,
                                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                             small_tag=args.small_tag,
                                             max_num_col=args.max_num_col,
-                                            sampling_method=args.sampling_method,
-                                            random_seed=args.random_seed,
                                             context_encoding_type=args.context_encoding_type,
-                                            adaptive_max_length=args.adaptive_max_length)
+                                            adaptive_max_length=args.adaptive_max_length,
+                                            return_table_embedding=args.external_table_embedding,
+                                            )
 
                 train_sampler = RandomSampler(train_dataset)
                 train_dataloader = DataLoader(train_dataset,
@@ -401,23 +409,22 @@ if __name__ == "__main__":
                                             #   collate_fn=collate_fn)
                                             collate_fn=padder)
                 test_dataset = dataset_cls(cv=cv,
-                                            split="test",
+                                           split="test", 
                                             tokenizer=tokenizer,
                                             max_length=max_length,
-                                            gt_only='all' not in task,
+                                            gt_only='all' not in task or args.unlabeled_train_only,
                                             device=device,
                                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                             small_tag=args.small_tag,
                                             max_num_col=args.max_num_col,
-                                            sampling_method=args.sampling_method,
-                                            random_seed=args.random_seed,
                                             context_encoding_type=args.context_encoding_type,
-                                            adaptive_max_length=args.adaptive_max_length)
+                                            adaptive_max_length=args.adaptive_max_length,
+                                            return_table_embedding=args.external_table_embedding)
                 test_dataloader = DataLoader(test_dataset,
                                                 batch_size=batch_size//2,
                                                 collate_fn=padder)    
             else:
-                dataset_cls = GittablesColwiseDataset
+                dataset_cls = GittablesColwiseMaxDataset
                 train_dataset = dataset_cls(split="train",
                                             src=src,
                                             tokenizer=tokenizer,
@@ -594,8 +601,10 @@ if __name__ == "__main__":
         elif "col-popl" in task:
             model = BertForMultiOutputClassificationColPopl(ckpt_hp, device=device, lm=ckpt['hp'].lm, n_seed_cols=int(task[i][-1]), cls_for_md="md" in task)
         else:
-            model = BertForMultiOutputClassification(ckpt_hp, device=device, lm=ckpt['hp'].lm, version=args.pool_version)
-            
+            model = BertForMultiSelectionDebugClassification(ckpt_hp, device=device, lm=ckpt['hp'].lm, version=args.pool_version, 
+                                                    tau=args.tau, max_num_cols=args.max_num_col, target_num_cols=args.target_num_col, 
+                                                    num_tokens_per_col=max_length, gate_version=args.gate_version, hard_inference=args.hard_inference)
+        
 
         if not args.from_scratch:
             pre_model, trainset = load_checkpoint(ckpt)
@@ -628,6 +637,9 @@ if __name__ == "__main__":
             },
         ]
         optimizer = AdamW(optimizer_grouped_parameters, lr=5e-5, eps=1e-8)
+        if args.ema_decay:
+            ema = ExponentialMovingAverage(model.gate.parameters(), decay=args.ema_decay)
+            ema.to(device)
         scheduler = get_linear_schedule_with_warmup(optimizer,
                                                     num_warmup_steps=0,
                                                     num_training_steps=t_total)
@@ -656,9 +668,11 @@ if __name__ == "__main__":
         best_vl_macro_f1s_epoch = -1
         best_vl_loss_epoch = -1
         best_model_dict = {}
+        best_ema_dict = {}
         loss_info_list = []
         eval_dict = defaultdict(dict)
         time_epochs = []
+        last_gates_all = None
         # =============================Training Loop=============================
         for epoch in range(num_train_epochs):
             t1 = time()
@@ -700,7 +714,9 @@ if __name__ == "__main__":
                     tr_pred_list.update(all_preds)
                     loss = loss_fn(logits, labels_1d)
                 else:
-                    logits = model(batch["data"].T, cls_indexes=cls_indexes, token_type_ids=batch["token_type_ids"].T if args.use_token_type_ids else None)
+                    logits = model(batch["data"].T, cls_indexes=cls_indexes, 
+                                   token_type_ids=None,
+                                   column_embeddings=batch['table_embedding'] if args.external_table_embedding else None)[0]
                     
                     # if len(logits.shape) == 2:
                     #     logits = logits.unsqueeze(0)
@@ -753,9 +769,13 @@ if __name__ == "__main__":
                         loss = loss_fn(logits, batch["label"].float())
 
                 accelerator.backward(loss)
+                if args.grad_clip is not None:
+                    torch.nn.utils.clip_grad_norm_(model.gate.parameters(), args.grad_clip)
                 # loss.backward()
                 tr_loss += loss.cpu().detach().item()
                 optimizer.step()
+                if args.ema_decay:
+                    ema.update()
                 scheduler.step()
                 optimizer.zero_grad()
                 
@@ -778,7 +798,9 @@ if __name__ == "__main__":
                     tr_true_list, tr_pred_list)
 
             # ======================= Validation =======================
+            print("Validation starts")
             model.eval()
+            gates_all = []
             with accelerator.main_process_first():
                 device = accelerator.device
                 for batch_idx, batch in enumerate(valid_dataloader):
@@ -801,7 +823,18 @@ if __name__ == "__main__":
                         vl_pred_list.update(all_preds)
                         loss = loss_fn(logits, labels_1d)
                     else:
-                        logits = model(batch["data"].T, cls_indexes=cls_indexes, token_type_ids=batch["token_type_ids"].T if args.use_token_type_ids else None)
+                        if args.ema_decay:
+                            with ema.average_parameters():
+                                logits, gates = model(batch["data"].T, cls_indexes=cls_indexes, 
+                                        token_type_ids=None,
+                                        column_embeddings=batch['table_embedding'] if args.external_table_embedding else None, 
+                                        return_gates=True)
+                        else:
+                            logits, gates = model(batch["data"].T, cls_indexes=cls_indexes, 
+                                    token_type_ids=None,
+                                    column_embeddings=batch['table_embedding'] if args.external_table_embedding else None, 
+                                    return_gates=True)
+                        gates_all.append(gates)
                         # if len(logits.shape) == 2:
                         #     logits = logits.unsqueeze(0)
                         # logits = torch.zeros(cls_indexes.shape[0],
@@ -854,6 +887,11 @@ if __name__ == "__main__":
                     vl_loss += loss.cpu().detach().item()
 
                 vl_loss /= (len(valid_dataset) / batch_size)
+                gates_all = torch.cat(gates_all, dim=0)
+                if last_gates_all is None:
+                    last_gates_all = torch.zeros_like(gates_all)
+                gates_diff = ((gates_all != last_gates_all).sum(1)/ args.target_num_col).mean().item()
+                last_gates_all = gates_all
                 if "sato" in task or "gt-" in task:
                     vl_micro_f1 = f1_score(vl_true_list,
                                             vl_pred_list,
@@ -872,22 +910,20 @@ if __name__ == "__main__":
                         vl_true_list, vl_pred_list)
                 
                 t2 = time()
-                # ["f1_macro", "f1_micro", "loss"]
                 if vl_micro_f1 > best_vl_micro_f1:
                     best_vl_micro_f1 = vl_micro_f1
                     model_savepath = "{}_best_f1_micro.pt".format(file_path)
                     best_model_dict["f1_micro"] = deepcopy(model.state_dict())
+                    if args.ema_decay:
+                        best_ema_dict["f1_micro"] = deepcopy(ema.state_dict())
                     best_vl_micro_f1s_epoch = epoch
                 if vl_macro_f1 > best_vl_macro_f1:
                     best_vl_macro_f1 = vl_macro_f1
                     model_savepath = "{}_best_f1_macro.pt".format(file_path)
                     best_model_dict["f1_macro"] = deepcopy(model.state_dict())
+                    if args.ema_decay:
+                        best_ema_dict["f1_macro"] = deepcopy(ema.state_dict())
                     best_vl_macro_f1s_epoch = epoch
-                if best_vl_loss > vl_loss:
-                    best_vl_loss = vl_loss
-                    model_savepath = "{}_best_loss.pt".format(file_path)
-                    best_model_dict["loss"] = deepcopy(model.state_dict())
-                    best_vl_loss_epoch = epoch
                 loss_info_list.append([
                     tr_loss, tr_macro_f1, tr_micro_f1, vl_loss, vl_macro_f1,
                     vl_micro_f1
@@ -897,8 +933,8 @@ if __name__ == "__main__":
                 print(
                     "Epoch {} ({}): tr_loss={:.7f} tr_macro_f1={:.4f} tr_micro_f1={:.4f} "
                     .format(epoch, task, tr_loss, tr_macro_f1, tr_micro_f1),
-                    "vl_loss={:.7f} vl_macro_f1={:.4f} vl_micro_f1={:.4f} ({:.2f} sec.)"
-                    .format(vl_loss, vl_macro_f1, vl_micro_f1, time_epoch))
+                    "vl_loss={:.7f} vl_macro_f1={:.4f} vl_micro_f1={:.4f} ({:.2f} sec.) vl_gates_diff={:.4f}"
+                    .format(vl_loss, vl_macro_f1, vl_micro_f1, time_epoch, gates_diff))
                 if accelerator.is_local_main_process and args.wandb:
                     wandb.log({
                             f"train/loss": tr_loss,
@@ -907,8 +943,10 @@ if __name__ == "__main__":
                             f"valid/loss": vl_loss,
                             f"valid/macro_f1": vl_macro_f1,
                             f"valid/micro_f1": vl_micro_f1,
+                            f"valid/gates_diff": gates_diff,
                             f"train/time": time_epoch,
-                        }, step=num_train_epochs*repeat_i+epoch+1, commit=True)                         
+                        }, step=num_train_epochs*repeat_i+epoch+1, commit=True)
+            # epoch test
         if accelerator.is_local_main_process and args.wandb:
             wandb.log({
                     f"train/avg_time_{repeat_i}": np.mean(time_epochs),
@@ -931,11 +969,14 @@ if __name__ == "__main__":
         
     # ======================= Test =======================
         print("Test starts")
-        for f1_name in ["f1_macro", "f1_micro", "loss"]:
+        for f1_name in ["f1_macro", "f1_micro"]:
             model_savepath = "{}_best_{}.pt".format(file_path, f1_name)
             torch.save(best_model_dict[f1_name], model_savepath)
             model.load_state_dict(best_model_dict[f1_name])
             model.eval()
+            if args.ema_decay:
+                ema.load_state_dict(best_ema_dict[f1_name])
+                ema.copy_to(model.gate.parameters())
             if "popl" in task:
                 ts_pred_list = {}
                 ts_true_list = {}
@@ -966,7 +1007,9 @@ if __name__ == "__main__":
                     ts_pred_list.update(all_preds)
                     
                 else:
-                    logits = model(batch["data"].T, cls_indexes=cls_indexes, token_type_ids=batch["token_type_ids"].T if args.use_token_type_ids else None).cpu()
+                    logits = model(batch["data"].T, cls_indexes=cls_indexes, 
+                                token_type_ids=None,
+                                column_embeddings=batch['table_embedding'] if args.external_table_embedding else None)[0].cpu()
                     # if len(logits.shape) == 2:
                     #     logits = logits.unsqueeze(0)
                     # logits = torch.zeros(cls_indexes.shape[0],
@@ -1058,7 +1101,7 @@ if __name__ == "__main__":
         json.dump(eval_dict, fout)
 
     if accelerator.is_local_main_process and args.wandb:
-        for f1_name in ["f1_macro", "f1_micro", "loss"]:
+        for f1_name in ["f1_macro", "f1_micro"]:
             wandb.log({
                 f"test/{f1_name}:micro_f1": np.mean(ts_micro_f1_all[f1_name]),
                 f"test/{f1_name}:macro_f1": np.mean(ts_macro_f1_all[f1_name]),

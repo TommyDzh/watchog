@@ -881,11 +881,6 @@ if __name__ == "__main__":
                 model_savepath = "{}_best_f1_macro.pt".format(file_path)
                 best_model_dict["f1_macro"] = deepcopy(model.state_dict())
                 best_vl_macro_f1s_epoch = epoch
-            if best_vl_loss > vl_loss:
-                best_vl_loss = vl_loss
-                model_savepath = "{}_best_loss.pt".format(file_path)
-                best_model_dict["loss"] = deepcopy(model.state_dict())
-                best_vl_loss_epoch = epoch
             loss_info_list.append([
                 tr_loss, tr_macro_f1, tr_micro_f1, vl_loss, vl_macro_f1,
                 vl_micro_f1
@@ -930,7 +925,7 @@ if __name__ == "__main__":
     
 # ======================= Test =======================
     print("Test starts")
-    for f1_name in ["f1_macro", "f1_micro", "loss"]:
+    for f1_name in ["f1_macro", "f1_micro"]:
         model_savepath = "{}_best_{}.pt".format(file_path, f1_name)
         torch.save(best_model_dict[f1_name], model_savepath)
         model.load_state_dict(best_model_dict[f1_name])

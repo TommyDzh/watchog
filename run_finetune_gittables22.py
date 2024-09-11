@@ -22,10 +22,9 @@ from_scratch = True
 # from_scratch = True # True means using Huggingface's pre-trained language model's checkpoint
 eval_test = True
 colpair = False
-gpus = '0'
-small_tag = 'semi'
-max_unlabeled = 2
-comment = "max-unlabeled@{}".format(max_unlabeled)
+gpus = '2'
+small_tag = 'semi1'
+
 
 # cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py \
 #             --shortcut_name {} --task {} --max_length {} --batch_size {} --epoch {} \
@@ -52,11 +51,11 @@ comment = "max-unlabeled@{}".format(max_unlabeled)
 #     )   
 #     # os.system('{} & '.format(cmd))
 #     subprocess.run(cmd, shell=True, check=True)
-max_unlabeled = 2
-comment = "max-unlabeled@{}".format(max_unlabeled)
+max_unlabeled = 8
+comment = "AttnMask-max-unlabeled@{}".format(max_unlabeled)
 for task in ['gt-semtab22-dbpedia-all0']:
     cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py --wandb True \
-                --shortcut_name {} --task {} --max_length {} --max_unlabeled {} --batch_size {} --epoch {} \
+                --shortcut_name {} --task {} --use_attention_mask True --max_length {} --max_unlabeled {} --batch_size {} --epoch {} \
                 --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
         gpus, base_model, task, ml, max_unlabeled, bs, n_epochs, dropout_prob,
         ckpt_path, cl_tag, small_tag, comment,

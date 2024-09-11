@@ -468,7 +468,8 @@ class BertMultiPooler(nn.Module):
             pooled_outputs = self.dense(pooled_outputs)
         elif self.version == "v0.3":
             pooled_outputs = pooler_output
-            pooled_outputs = self.dense(pooled_outputs)            
+            pooled_outputs = self.dense(pooled_outputs)  
+                      
         elif self.version == "v1":
             pooled_outputs = pool_sub_sentences(hidden_states, cls_indexes, table_length)
             pooled_outputs = self.dense(pooled_outputs)
@@ -528,7 +529,7 @@ class BertMultiPairPooler(nn.Module):
 
 class BertForMultiOutputClassification(nn.Module):
 
-    def __init__(self, hp, device='cuda', lm='roberta', col_pair='None', version='v0'):
+    def __init__(self, hp, device='cuda', lm='roberta', col_pair='None', version='v0', use_attention_mask=False):
         
         super().__init__()
         self.hp = hp
@@ -536,6 +537,7 @@ class BertForMultiOutputClassification(nn.Module):
         self.device = device
         self.col_pair = col_pair
         self.version = version
+        self.use_attention_mask =  use_attention_mask
         hidden_size = 768
 
         # projector
@@ -561,8 +563,13 @@ class BertForMultiOutputClassification(nn.Module):
         cls_indexes=None,
         token_type_ids=None,
     ):
+        if self.use_attention_mask:
+            attention_mask = input_ids != 0
+        else:
+            attention_mask = None
         # BertModelMultiOutput
-        bert_output = self.bert(input_ids, token_type_ids=token_type_ids)
+        bert_output = self.bert(input_ids, token_type_ids=token_type_ids, 
+                                attention_mask=attention_mask)
         table_length = [len(input_ids[i].nonzero()) for i in range(len(input_ids))]
         # Note: returned tensor contains pooled_output of all tokens (to make the tensor size consistent)
         pooled_output = self.pooler(bert_output[0], pooler_output=bert_output[1], cls_indexes=cls_indexes, table_length=table_length).squeeze(0)
@@ -728,7 +735,7 @@ from transformers.modeling_attn_mask_utils import (
 class BertForMultiSelectionClassification(nn.Module):
 
     def __init__(self, hp, device='cuda', lm='roberta', col_pair='None', version='v0', 
-                 tau=1.0, max_num_cols=10, target_num_cols=8, num_tokens_per_col=64, gate_version='v0.1'):
+                 tau=1.0, max_num_cols=10, target_num_cols=8, num_tokens_per_col=64, gate_version='v0.1', hard_inference=False):
         
         super().__init__()
         assert num_tokens_per_col * target_num_cols <= 512
@@ -742,6 +749,8 @@ class BertForMultiSelectionClassification(nn.Module):
         self.version = version
         self.gate_version = gate_version
         self.hidden_size = hidden_size = 768
+        self.hard_inference = hard_inference
+        self.pad_token_id = 0
 
         # projector
         self.pooler = BertMultiPooler(hidden_size, version=version)
@@ -753,7 +762,9 @@ class BertForMultiSelectionClassification(nn.Module):
         self.dropout = nn.Dropout(hp.hidden_dropout_prob)
         self.classifier = nn.Linear(hidden_size, self.hp.num_labels)
         # For selection module
-        self.sampler = SubsetOperator(k=self.M, tau=tau, hard=True)
+        self.soft_sampler = SubsetOperator(k=self.M, tau=tau, hard=False)
+        self.hard_sampler = SubsetOperator(k=self.M, tau=tau, hard=True)
+        
         if gate_version == 'v0':
             self.gate = nn.Linear(2*hidden_size, 1)
         elif gate_version == 'v0.1':
@@ -839,9 +850,9 @@ class BertForMultiSelectionClassification(nn.Module):
         N = self.N
         M = self.M
         num_tokens_per_col = self.num_tokens_per_col
-        assert num_tokens_per_col * N <= input_ids.size(1) 
+        assert num_tokens_per_col * N <= input_ids.size(1)
         D = self.hidden_size
-        
+        attention_mask = (input_ids != self.pad_token_id).long()
         # Select top M columns
         split_ids = input_ids.split(num_tokens_per_col, dim=1)
         token_embedding = []
@@ -879,13 +890,18 @@ class BertForMultiSelectionClassification(nn.Module):
         else:
             raise ValueError(f"Invalid gate version: {self.gate_version}")
         column_logits = self.gate(context_embeddings).squeeze() # (B, N)
-        gates = self.sampler(column_logits) # (B, M)
-        chosen_mask = torch.matmul(gates.unsqueeze(1), col_to_token).squeeze(1).unsqueeze(-1) # (B, N, 1)
-        chosen_embeddings = token_embedding * chosen_mask 
-        chosen_embeddings = chosen_embeddings[chosen_mask.detach().bool().expand_as(chosen_embeddings)].view(B, -1, D)
-        embedding_output = torch.cat([token_embedding[:, :num_tokens_per_col, :], chosen_embeddings], dim=1)
+        if self.training or not self.hard_inference:
+            gates = self.soft_sampler(column_logits)
+            chosen_mask = torch.matmul(gates.unsqueeze(1), col_to_token).squeeze(1).unsqueeze(-1) # (B, N, 1)
+            chosen_embeddings = token_embedding * chosen_mask             
+        else:
+            gates = self.hard_sampler(column_logits)
+            chosen_mask = torch.matmul(gates.unsqueeze(1), col_to_token).squeeze(1).unsqueeze(-1) # (B, N, 1)
+            chosen_embeddings = token_embedding * chosen_mask 
+            chosen_embeddings = chosen_embeddings[chosen_mask.detach().bool().expand_as(chosen_embeddings)].view(B, -1, D) # extract hard selected columns
         
-        bert_output = self.attn_forward(embedding_output)
+        embedding_output = torch.cat([token_embedding[:, :num_tokens_per_col, :], chosen_embeddings[:, num_tokens_per_col:, :]], dim=1)
+        bert_output = self.attn_forward(embedding_output, attention_mask=attention_mask)
         
         # BertModelMultiOutput
         table_length = [len(input_ids[i].nonzero()) for i in range(len(input_ids))]
@@ -898,7 +914,303 @@ class BertForMultiSelectionClassification(nn.Module):
         if get_enc:
             outputs.append(pooled_output)
         if return_gates:
-            outputs.append(gates.clone().detach().cpu())
+            outputs.append(self.hard_sampler(column_logits.clone()).detach().cpu())
+
+        return outputs  # (loss), logits, (hidden_states), (attentions)
+    
+    def attn_forward(
+        self,
+        embedding_output: Optional[torch.Tensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        token_type_ids: Optional[torch.Tensor] = None,
+        position_ids: Optional[torch.Tensor] = None,
+        head_mask: Optional[torch.Tensor] = None,
+        inputs_embeds: Optional[torch.Tensor] = None,
+        encoder_hidden_states: Optional[torch.Tensor] = None,
+        encoder_attention_mask: Optional[torch.Tensor] = None,
+        past_key_values: Optional[List[torch.FloatTensor]] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> Tuple[torch.Tensor]:
+        r"""
+        encoder_hidden_states  (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`, *optional*):
+            Sequence of hidden-states at the output of the last layer of the encoder. Used in the cross-attention if
+            the model is configured as a decoder.
+        encoder_attention_mask (`torch.FloatTensor` of shape `(batch_size, sequence_length)`, *optional*):
+            Mask to avoid performing attention on the padding token indices of the encoder input. This mask is used in
+            the cross-attention if the model is configured as a decoder. Mask values selected in `[0, 1]`:
+
+            - 1 for tokens that are **not masked**,
+            - 0 for tokens that are **masked**.
+        past_key_values (`tuple(tuple(torch.FloatTensor))` of length `config.n_layers` with each tuple having 4 tensors of shape `(batch_size, num_heads, sequence_length - 1, embed_size_per_head)`):
+            Contains precomputed key and value hidden states of the attention blocks. Can be used to speed up decoding.
+
+            If `past_key_values` are used, the user can optionally input only the last `decoder_input_ids` (those that
+            don't have their past key value states given to this model) of shape `(batch_size, 1)` instead of all
+            `decoder_input_ids` of shape `(batch_size, sequence_length)`.
+        use_cache (`bool`, *optional*):
+            If set to `True`, `past_key_values` key value states are returned and can be used to speed up decoding (see
+            `past_key_values`).
+        """
+        output_attentions = False
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.bert.config.output_hidden_states
+        )
+        return_dict = False
+
+        if self.bert.config.is_decoder:
+            use_cache = use_cache if use_cache is not None else self.bert.config.use_cache
+        else:
+            use_cache = False
+
+        input_shape = embedding_output.shape[:2]
+
+        batch_size, seq_length = input_shape
+        device = embedding_output.device
+
+        # past_key_values_length
+        past_key_values_length = past_key_values[0][0].shape[2] if past_key_values is not None else 0
+
+
+        if attention_mask is None:
+            attention_mask = torch.ones((batch_size, seq_length + past_key_values_length), device=device)
+
+        use_sdpa_attention_masks = (
+            self.bert.attn_implementation == "sdpa"
+            and self.bert.position_embedding_type == "absolute"
+            and head_mask is None
+            and not output_attentions
+        )
+
+        # Expand the attention mask
+        if use_sdpa_attention_masks:
+            # Expand the attention mask for SDPA.
+            # [bsz, seq_len] -> [bsz, 1, seq_len, seq_len]
+            if self.bert.config.is_decoder:
+                extended_attention_mask = _prepare_4d_causal_attention_mask_for_sdpa(
+                    attention_mask,
+                    input_shape,
+                    embedding_output,
+                    past_key_values_length,
+                )
+            else:
+                extended_attention_mask = _prepare_4d_attention_mask_for_sdpa(
+                    attention_mask, embedding_output.dtype, tgt_len=seq_length
+                )
+        else:
+            # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
+            # ourselves in which case we just need to make it broadcastable to all heads.
+            extended_attention_mask = self.bert.get_extended_attention_mask(attention_mask, input_shape)
+
+        # If a 2D or 3D attention mask is provided for the cross-attention
+        # we need to make broadcastable to [batch_size, num_heads, seq_length, seq_length]
+        if self.bert.config.is_decoder and encoder_hidden_states is not None:
+            encoder_batch_size, encoder_sequence_length, _ = encoder_hidden_states.size()
+            encoder_hidden_shape = (encoder_batch_size, encoder_sequence_length)
+            if encoder_attention_mask is None:
+                encoder_attention_mask = torch.ones(encoder_hidden_shape, device=device)
+
+            if use_sdpa_attention_masks:
+                # Expand the attention mask for SDPA.
+                # [bsz, seq_len] -> [bsz, 1, seq_len, seq_len]
+                encoder_extended_attention_mask = _prepare_4d_attention_mask_for_sdpa(
+                    encoder_attention_mask, embedding_output.dtype, tgt_len=seq_length
+                )
+            else:
+                encoder_extended_attention_mask = self.bert.invert_attention_mask(encoder_attention_mask)
+        else:
+            encoder_extended_attention_mask = None
+
+        # Prepare head mask if needed
+        # 1.0 in head_mask indicate we keep the head
+        # attention_probs has shape bsz x n_heads x N x N
+        # input head_mask has shape [num_heads] or [num_hidden_layers x num_heads]
+        # and head_mask is converted to shape [num_hidden_layers x batch x num_heads x seq_length x seq_length]
+        head_mask = self.bert.get_head_mask(head_mask, self.bert.config.num_hidden_layers)
+
+        encoder_outputs = self.bert.encoder(
+            embedding_output,
+            attention_mask=extended_attention_mask,
+            head_mask=head_mask,
+            encoder_hidden_states=encoder_hidden_states,
+            encoder_attention_mask=encoder_extended_attention_mask,
+            past_key_values=past_key_values,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        sequence_output = encoder_outputs[0]
+        pooled_output = self.bert.pooler(sequence_output) if self.bert.pooler is not None else None
+
+        # if not return_dict:
+        return (sequence_output, pooled_output) + encoder_outputs[1:]
+
+        # return BaseModelOutputWithPoolingAndCrossAttentions(
+        #     last_hidden_state=sequence_output,
+        #     pooler_output=pooled_output,
+        #     past_key_values=encoder_outputs.past_key_values,
+        #     hidden_states=encoder_outputs.hidden_states,
+        #     attentions=encoder_outputs.attentions,
+        #     cross_attentions=encoder_outputs.cross_attentions,
+        # )
+
+
+
+class BertForMultiSelectionDebugClassification(nn.Module):
+
+    def __init__(self, hp, device='cuda', lm='roberta', col_pair='None', version='v0', 
+                 tau=1.0, max_num_cols=10, target_num_cols=8, num_tokens_per_col=64, gate_version='v0.1', hard_inference=False):
+        
+        super().__init__()
+        assert num_tokens_per_col * target_num_cols <= 512
+        self.N = max_num_cols
+        self.M = target_num_cols
+        self.num_tokens_per_col = num_tokens_per_col
+        self.hp = hp
+        self.bert = AutoModel.from_pretrained(lm_mp[lm])
+        self.device = device
+        self.col_pair = col_pair
+        self.version = version
+        self.gate_version = gate_version
+        self.hidden_size = hidden_size = 768
+        self.pad_token_id = 0
+        self.hard_inference = hard_inference
+
+        # projector
+        self.pooler = BertMultiPooler(hidden_size, version=version)
+        self.projector = nn.Linear(hidden_size, hp.projector)
+        '''Require all models using the same CLS token'''
+        # self.cls_token_id = AutoTokenizer.from_pretrained(lm_mp['roberta']).cls_token_id
+        self.cls_token_id = AutoTokenizer.from_pretrained(lm_mp[lm]).cls_token_id
+        self.num_labels = hp.num_labels
+        self.dropout = nn.Dropout(hp.hidden_dropout_prob)
+        self.classifier = nn.Linear(hidden_size, self.hp.num_labels)
+        # For selection module
+        self.soft_sampler = SubsetOperator(k=self.M, tau=tau, hard=False)
+        self.hard_sampler = SubsetOperator(k=self.M, tau=tau, hard=True)
+        
+        if gate_version == 'v0':
+            self.gate = nn.Linear(2*hidden_size, 1)
+        elif gate_version == 'v0.1':
+            self.gate = nn.Sequential(
+                nn.Linear(2*hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Linear(hidden_size, 1)
+            )
+        elif gate_version == 'v0.2':
+            self.gate = nn.Sequential(
+                nn.Linear(2*hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Dropout(p=0.5),
+                nn.Linear(hidden_size, 1)
+            )          
+        elif gate_version == 'v1.1' or gate_version == 'v2.1':
+            self.gate = nn.Sequential(
+                nn.Linear(3*hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Linear(hidden_size, 1)
+            )
+        elif gate_version == 'v1.2' or gate_version == 'v2.2':
+            self.gate = nn.Sequential(
+                nn.Linear(3*hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Dropout(p=0.5),
+                nn.Linear(hidden_size, 1)
+            )
+        elif gate_version == 'v3.1':
+            self.gate = nn.Sequential(
+                nn.Linear(4*hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Linear(hidden_size, 1)
+            )    
+        elif gate_version == 'v3.2':
+            self.gate = nn.Sequential(
+                nn.Linear(4*hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Dropout(p=0.5),
+                nn.Linear(hidden_size, 1)
+            )
+        elif gate_version == 'v4.1' or gate_version == 'v5.1':
+            self.gate = nn.Sequential(
+                nn.Linear(hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Linear(hidden_size, 1)
+            )            
+        elif gate_version == 'v4.2' or gate_version == 'v5.2':
+            self.gate = nn.Sequential(
+                nn.Linear(hidden_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.SiLU(),
+                nn.Dropout(p=0.5),
+                nn.Linear(hidden_size, 1)
+            )
+        else:
+            raise ValueError(f"Invalid gate version: {gate_version}")
+
+    def load_from_CL_model(self, model):
+        '''load from models pre-trained with contrastive learning'''
+        self.bert = model.bert
+        self.projector = model.projector
+        self.cls_token_id = model.cls_token_id
+
+    def forward(
+        self,
+        input_ids=None,
+        get_enc=False,
+        return_gates=False,
+        cls_indexes=None,
+        token_type_ids=None,
+        column_embeddings=None,
+    ):
+        device = input_ids.device
+        B = input_ids.size(0)
+        N = self.N
+        M = self.M
+        num_tokens_per_col = self.num_tokens_per_col
+        assert num_tokens_per_col * N <= input_ids.size(1)
+        D = self.hidden_size
+        
+        # Select top M columns
+        attention_mask = (input_ids != self.pad_token_id).long()
+        split_ids = input_ids.split(num_tokens_per_col, dim=1)
+        token_embedding = []
+        
+        past_key_values_length = 0
+        for i in range(N):
+            if i == 0:
+                token_embedding.append(self.bert.embeddings(split_ids[i], 
+                                                token_type_ids=torch.zeros_like(split_ids[i], device=device),
+                                                past_key_values_length=past_key_values_length,))
+            else:
+                token_embedding.append(self.bert.embeddings(split_ids[i], 
+                                                    token_type_ids=torch.ones_like(split_ids[i], device=device),
+                                                    past_key_values_length=past_key_values_length,))
+            past_key_values_length += num_tokens_per_col
+        token_embedding = torch.cat(token_embedding, dim=1) # (B, N*L, D)
+        bert_output = self.attn_forward(token_embedding, attention_mask=attention_mask)
+        
+        # BertModelMultiOutput
+        table_length = [len(input_ids[i].nonzero()) for i in range(len(input_ids))]
+        # Note: returned tensor contains pooled_output of all tokens (to make the tensor size consistent)
+        pooled_output = self.pooler(bert_output[0], pooler_output=bert_output[1], cls_indexes=cls_indexes, table_length=table_length).squeeze(0)
+        pooled_output = self.dropout(pooled_output)
+        logits = self.classifier(pooled_output)
+        
+        outputs = [logits] 
+        if get_enc:
+            outputs.append(pooled_output)
+        if return_gates:
+            outputs.append(torch.ones(B, N))
 
         return outputs  # (loss), logits, (hidden_states), (attentions)
     

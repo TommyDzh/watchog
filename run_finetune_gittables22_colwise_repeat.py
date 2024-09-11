@@ -11,7 +11,7 @@ task = 'gt-semtab22-dbpedia-all0'
 # task = 'turl'
 ml = 128  # 32
 bs = 16 # 16
-n_epochs = 50
+
 # n_epochs = 10
 base_model = 'bert-base-uncased'
 # base_model = 'distilbert-base-uncased'
@@ -55,25 +55,25 @@ comment = "max-unlabeled@{}".format(max_num_col)
 
 small_tag = 'semi1'
 ml = 64  # 32
+n_epochs = 50
 gpus = '1'
 pool = 'v0'
 rand = False
 use_token_type_ids = True
-sampling_method = 'random'
+sampling_method = None
 ctype = "v1.2"
 repeat = 5
 for max_num_col in [4]:
-    for random_seed in [1,2,3]:
-        comment = "Repeat@{}-pool@{}-context@{}-max_num_col@{}-use_token_type@{}-sampling_method@{}-seed@{}".format(repeat, pool, ctype, max_num_col, use_token_type_ids, sampling_method, random_seed)
-        for task in ['gt-semtab22-dbpedia-all0']:
-            cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_colwise_repeat.py --wandb True  \
-                        --repeat {} --shortcut_name {} --task {} --max_length {} --max_num_col {} --context_encoding_type {} --pool_version {} --sampling_method {} --random_seed {} --batch_size {} --use_token_type_ids {} --epoch {} \
-                        --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
-                gpus, repeat, base_model, task, ml, max_num_col, ctype, pool, sampling_method, random_seed, bs, use_token_type_ids, n_epochs, dropout_prob,
-                ckpt_path, cl_tag, small_tag, comment,
-                '--colpair' if colpair else '',
-                '--from_scratch' if from_scratch else '',        
-                '--eval_test' if eval_test else ''
-            )   
-            # os.system('{} & '.format(cmd))
-            subprocess.run(cmd, shell=True, check=True)
+    comment = "Repeat@{}-pool@{}-context@{}-max_num_col@{}-use_token_type@{}-sampling_method@{}".format(repeat, pool, ctype, max_num_col, use_token_type_ids, sampling_method)
+    for task in ['gt-semtab22-dbpedia-all0']:
+        cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_colwise_repeat.py --wandb True  \
+                    --repeat {} --shortcut_name {} --task {} --max_length {} --max_num_col {} --context_encoding_type {} --pool_version {} --sampling_method {} --batch_size {} --use_token_type_ids {} --epoch {} \
+                    --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
+            gpus, repeat, base_model, task, ml, max_num_col, ctype, pool, sampling_method, bs, use_token_type_ids, n_epochs, dropout_prob,
+            ckpt_path, cl_tag, small_tag, comment,
+            '--colpair' if colpair else '',
+            '--from_scratch' if from_scratch else '',        
+            '--eval_test' if eval_test else ''
+        )   
+        # os.system('{} & '.format(cmd))
+        subprocess.run(cmd, shell=True, check=True)

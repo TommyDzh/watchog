@@ -30,7 +30,7 @@ n_epochs = 30
 
 small_tag = 'semi1'
 
-gpus = '1'
+gpus = '2'
 pool = 'v0'
 rand = False
 use_token_type_ids = False
@@ -41,9 +41,9 @@ gate_version = 'v0.1'
 hard_inference=False
 for target_num_col in [4]:
     for tau in [0.1]:
-        comment = "pool@{}-hard_inference@{}-context@{}-max_num_col@{}-target_num_col@{}-tau@{}-gate@{}".format(pool, hard_inference, ctype, max_num_col, target_num_col, tau, gate_version)
+        comment = "DEBUG-AttnMask-PaskKV-pool@{}-hard_inference@{}-context@{}-max_num_col@{}-target_num_col@{}-tau@{}-gate@{}".format(pool, hard_inference, ctype, max_num_col, target_num_col, tau, gate_version)
         for task in ['sato0']:
-            cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_colwise_selection_repeat.py --wandb True  \
+            cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_colwise_selection_repeat_debug.py --wandb True  \
                         --shortcut_name {} --task {} --max_length {} --max_num_col {} --context_encoding_type {} --pool_version {} --batch_size {} --use_token_type_ids {} --epoch {} \
                         --tau {} --target_num_col {}  --gate_version {} \
                         --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(

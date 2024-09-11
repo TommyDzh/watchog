@@ -36,22 +36,54 @@ rand = False
 use_token_type_ids = False
 ctype = "v1.2"
 target_num_col = 4
-repeat = 1
-gate_version = 'v0.2'
+repeat = 5
+gate_version = 'v0.1'
 external_table_embedding = False
-grad_clip = 5.0
+hard_inference = False
+ema_decay = 0.99
+# grad_clip = 5.0
     # parser.add_argument("--grad_clip", type=float, default=None)
     # parser.add_argument("--ema_decay", type=float, default=None)
 for max_num_col in [8]:
     for tau in [0.1]:
-        for gate_version in ['v0.2']:
-            comment = "Repeat@{}-external@{}-grad_clip-pool@{}-context@{}-max_num_col@{}-target_num_col@{}-tau@{}-gate@{}".format(repeat, external_table_embedding, pool, ctype, max_num_col, target_num_col, tau, gate_version)
+        # for gate_version in ['v0.1', 'v1.1', ]:
+        #     gpus = '0'
+        # for gate_version in ['v2.1', 'v3.1', ]:
+        #     gpus = '1'
+        for gate_version in ['v0.1' ]:
+            gpus = '2'            
+            comment = "Repeat@{}-external@{}-hard_inference@{}-ema_decay@{}-pool@{}-context@{}-max_num_col@{}-target_num_col@{}-tau@{}-gate@{}".format(repeat, external_table_embedding, hard_inference, ema_decay, pool, ctype, max_num_col, target_num_col, tau, gate_version)
             for task in ['gt-semtab22-dbpedia-all0']:
-                cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_colwise_selection_repeat.py --wandb True  \
-                            --shortcut_name {} --task {} --repeat {} --grad_clip {} --max_length {} --max_num_col {} --context_encoding_type {} --pool_version {} --batch_size {} --use_token_type_ids {} --epoch {} \
+                cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_colwise_selection_repeat_epoch.py --wandb True  \
+                            --shortcut_name {} --task {} --repeat {} --ema_decay {} --max_length {} --max_num_col {} --context_encoding_type {} --pool_version {} --batch_size {} --use_token_type_ids {} --epoch {} \
                             --tau {} --target_num_col {}  --gate_version {} \
                             --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
-                    gpus, base_model, task, repeat, grad_clip, ml, max_num_col, ctype, pool, bs, use_token_type_ids, n_epochs, 
+                    gpus, base_model, task, repeat, ema_decay, ml, max_num_col, ctype, pool, bs, use_token_type_ids, n_epochs, 
+                    tau, target_num_col, gate_version, 
+                    dropout_prob, ckpt_path, cl_tag, small_tag, comment,
+                    '--colpair' if colpair else '',
+                    '--from_scratch' if from_scratch else '',        
+                    '--eval_test' if eval_test else ''
+                )   
+                # os.system('{} & '.format(cmd))
+                subprocess.run(cmd, shell=True, check=True)
+
+hard_inference = True
+for max_num_col in [8]:
+    for tau in [0.1]:
+        # for gate_version in ['v0.1', 'v1.1', ]:
+        #     gpus = '0'
+        # for gate_version in ['v2.1', 'v3.1', ]:
+        #     gpus = '1'
+        for gate_version in ['v0.1' ]:
+            gpus = '2'            
+            comment = "Repeat@{}-external@{}-hard_inference@{}-ema_decay@{}-pool@{}-context@{}-max_num_col@{}-target_num_col@{}-tau@{}-gate@{}".format(repeat, external_table_embedding, hard_inference, ema_decay, pool, ctype, max_num_col, target_num_col, tau, gate_version)
+            for task in ['gt-semtab22-dbpedia-all0']:
+                cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_colwise_selection_repeat_epoch.py --wandb True  \
+                            --shortcut_name {} --task {} --hard_inference True --repeat {} --ema_decay {} --max_length {} --max_num_col {} --context_encoding_type {} --pool_version {} --batch_size {} --use_token_type_ids {} --epoch {} \
+                            --tau {} --target_num_col {}  --gate_version {} \
+                            --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
+                    gpus, base_model, task, repeat, ema_decay, ml, max_num_col, ctype, pool, bs, use_token_type_ids, n_epochs, 
                     tau, target_num_col, gate_version, 
                     dropout_prob, ckpt_path, cl_tag, small_tag, comment,
                     '--colpair' if colpair else '',

@@ -7,10 +7,11 @@ from multiprocessing import Semaphore
 
 '''run finetuning and evaluation on original datasets'''
 # task = 'turl-re'
+task = 'gt-semtab22-dbpedia-all0'
 # task = 'turl'
 ml = 128  # 32
-bs = 16 # 16
-n_epochs = 30
+
+
 # n_epochs = 10
 base_model = 'bert-base-uncased'
 # base_model = 'distilbert-base-uncased'
@@ -21,31 +22,34 @@ from_scratch = True
 # from_scratch = True # True means using Huggingface's pre-trained language model's checkpoint
 eval_test = True
 colpair = False
-gpus = '0'
-
-max_num_col = 2
-comment = "max-unlabeled@{}".format(max_num_col)
 
 
-
-
-small_tag = ''
 ml = 64  # 32
-gpus = '0'
+bs = 16 # 16
+n_epochs = 30
+
+small_tag = 'semi1'
+
+gpus = '2'
 pool = 'v0'
 rand = False
-ctype = "v1.1"
-use_token_type_ids = True
-sampling_method = 'random'
-for max_num_col in [4]:
-    for random_seed in [1, 2, 3 ]:
-        comment = "pool@{}-max_num_col@{}-use_token_type_ids@{}-sampling_method@{}-seed@{}".format(pool, max_num_col, use_token_type_ids, sampling_method, random_seed)
+use_token_type_ids = False
+ctype = "v1.2"
+max_num_col = 8
+target_num_col = 4
+gate_version = 'v0.1'
+hard_inference=True
+for target_num_col in [4]:
+    for tau in [0.1]:
+        comment = "pool@{}-hard_inference@{}-context@{}-max_num_col@{}-target_num_col@{}-tau@{}-gate@{}".format(pool, hard_inference, ctype, max_num_col, target_num_col, tau, gate_version)
         for task in ['sato0']:
-            cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_colwise.py --wandb True  \
-                        --shortcut_name {} --task {} --max_length {} --max_num_col {} --context_encoding_type {} --pool_version {} --sampling_method {} --random_seed {} --use_token_type_ids {} --batch_size {} --epoch {} \
+            cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_colwise_selection_repeat.py --wandb True  \
+                        --shortcut_name {} --task {} --hard_inference True --max_length {} --max_num_col {} --context_encoding_type {} --pool_version {} --batch_size {} --use_token_type_ids {} --epoch {} \
+                        --tau {} --target_num_col {}  --gate_version {} \
                         --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
-                gpus, base_model, task, ml, max_num_col, ctype, pool, sampling_method, random_seed, use_token_type_ids, bs, n_epochs, dropout_prob,
-                ckpt_path, cl_tag, small_tag, comment,
+                gpus, base_model, task, ml, max_num_col, ctype, pool, bs, use_token_type_ids, n_epochs, 
+                tau, target_num_col, gate_version, 
+                dropout_prob, ckpt_path, cl_tag, small_tag, comment,
                 '--colpair' if colpair else '',
                 '--from_scratch' if from_scratch else '',        
                 '--eval_test' if eval_test else ''

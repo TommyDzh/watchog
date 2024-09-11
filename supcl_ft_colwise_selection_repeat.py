@@ -55,8 +55,9 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default="Watchog")
     parser.add_argument("--unlabeled_train_only", type=bool, default=False)
     parser.add_argument("--context_encoding_type", type=str, default="v0")
-    parser.add_argument("--pool_version", type=str, default="v0.2")
+    parser.add_argument("--pool_version", type=str, default="v0")
     parser.add_argument("--sampling_method", type=str, default=None)
+    parser.add_argument("--hard_inference", type=bool, default=False)
     parser.add_argument("--random_sample", type=bool, default=False)
     parser.add_argument("--use_token_type_ids", type=bool, default=False)
     parser.add_argument("--tau", type=float, default=0.5)
@@ -601,7 +602,8 @@ if __name__ == "__main__":
             model = BertForMultiOutputClassificationColPopl(ckpt_hp, device=device, lm=ckpt['hp'].lm, n_seed_cols=int(task[i][-1]), cls_for_md="md" in task)
         else:
             model = BertForMultiSelectionClassification(ckpt_hp, device=device, lm=ckpt['hp'].lm, version=args.pool_version, 
-                                                    tau=args.tau, max_num_cols=args.max_num_col, target_num_cols=args.target_num_col, num_tokens_per_col=max_length, gate_version=args.gate_version)
+                                                    tau=args.tau, max_num_cols=args.max_num_col, target_num_cols=args.target_num_col, 
+                                                    num_tokens_per_col=max_length, gate_version=args.gate_version, hard_inference=args.hard_inference)
         
 
         if not args.from_scratch:
@@ -637,6 +639,7 @@ if __name__ == "__main__":
         optimizer = AdamW(optimizer_grouped_parameters, lr=5e-5, eps=1e-8)
         if args.ema_decay:
             ema = ExponentialMovingAverage(model.gate.parameters(), decay=args.ema_decay)
+            ema.to(device)
         scheduler = get_linear_schedule_with_warmup(optimizer,
                                                     num_warmup_steps=0,
                                                     num_training_steps=t_total)
@@ -665,6 +668,7 @@ if __name__ == "__main__":
         best_vl_macro_f1s_epoch = -1
         best_vl_loss_epoch = -1
         best_model_dict = {}
+        best_ema_dict = {}
         loss_info_list = []
         eval_dict = defaultdict(dict)
         time_epochs = []
@@ -794,6 +798,7 @@ if __name__ == "__main__":
                     tr_true_list, tr_pred_list)
 
             # ======================= Validation =======================
+            print("Validation starts")
             model.eval()
             gates_all = []
             with accelerator.main_process_first():
@@ -885,7 +890,7 @@ if __name__ == "__main__":
                 gates_all = torch.cat(gates_all, dim=0)
                 if last_gates_all is None:
                     last_gates_all = torch.zeros_like(gates_all)
-                gates_diff = ((gates_all != last_gates_all).sum(1)/ gates.shape[1]).mean().item()
+                gates_diff = ((gates_all != last_gates_all).sum(1)/ args.target_num_col).mean().item()
                 last_gates_all = gates_all
                 if "sato" in task or "gt-" in task:
                     vl_micro_f1 = f1_score(vl_true_list,
@@ -905,22 +910,20 @@ if __name__ == "__main__":
                         vl_true_list, vl_pred_list)
                 
                 t2 = time()
-                # ["f1_macro", "f1_micro", "loss"]
                 if vl_micro_f1 > best_vl_micro_f1:
                     best_vl_micro_f1 = vl_micro_f1
                     model_savepath = "{}_best_f1_micro.pt".format(file_path)
                     best_model_dict["f1_micro"] = deepcopy(model.state_dict())
+                    if args.ema_decay:
+                        best_ema_dict["f1_micro"] = deepcopy(ema.state_dict())
                     best_vl_micro_f1s_epoch = epoch
                 if vl_macro_f1 > best_vl_macro_f1:
                     best_vl_macro_f1 = vl_macro_f1
                     model_savepath = "{}_best_f1_macro.pt".format(file_path)
                     best_model_dict["f1_macro"] = deepcopy(model.state_dict())
+                    if args.ema_decay:
+                        best_ema_dict["f1_macro"] = deepcopy(ema.state_dict())
                     best_vl_macro_f1s_epoch = epoch
-                if best_vl_loss > vl_loss:
-                    best_vl_loss = vl_loss
-                    model_savepath = "{}_best_loss.pt".format(file_path)
-                    best_model_dict["loss"] = deepcopy(model.state_dict())
-                    best_vl_loss_epoch = epoch
                 loss_info_list.append([
                     tr_loss, tr_macro_f1, tr_micro_f1, vl_loss, vl_macro_f1,
                     vl_micro_f1
@@ -943,16 +946,16 @@ if __name__ == "__main__":
                             f"valid/gates_diff": gates_diff,
                             f"train/time": time_epoch,
                         }, step=num_train_epochs*repeat_i+epoch+1, commit=True)
+            # epoch test
         if accelerator.is_local_main_process and args.wandb:
             wandb.log({
-                    f"train/avg_time": np.mean(time_epochs),
-                    f"valid/best_micro_f1": best_vl_micro_f1,
-                    f"valid/best_macro_f1": best_vl_macro_f1,
-                    f"valid/best_loss": best_vl_loss,
-                    f"valid/best_micro_f1_epoch": best_vl_micro_f1s_epoch,
-                    f"valid/best_macro_f1_epoch": best_vl_macro_f1s_epoch,
-                    f"valid/best_loss_epoch": best_vl_loss_epoch,
-                }, step=repeat_i, commit=True)
+                    f"train/avg_time_{repeat_i}": np.mean(time_epochs),
+                    f"valid/best_micro_f1_{repeat_i}": best_vl_micro_f1,
+                    f"valid/best_macro_f1_{repeat_i}": best_vl_macro_f1,
+                    f"valid/best_loss_{repeat_i}": best_vl_loss,
+                    f"valid/best_micro_f1_epoch_{repeat_i}": best_vl_micro_f1s_epoch,
+                    f"valid/best_macro_f1_epoch_{repeat_i}": best_vl_macro_f1s_epoch,
+                }, commit=True)
         # log train results
         if type(tr_class_f1) != list:
             tr_class_f1 = tr_class_f1.tolist()  
@@ -966,11 +969,14 @@ if __name__ == "__main__":
         
     # ======================= Test =======================
         print("Test starts")
-        for f1_name in ["f1_macro", "f1_micro", "loss"]:
+        for f1_name in ["f1_macro", "f1_micro"]:
             model_savepath = "{}_best_{}.pt".format(file_path, f1_name)
             torch.save(best_model_dict[f1_name], model_savepath)
             model.load_state_dict(best_model_dict[f1_name])
             model.eval()
+            if args.ema_decay:
+                ema.load_state_dict(best_ema_dict[f1_name])
+                ema.copy_to(model.gate.parameters())
             if "popl" in task:
                 ts_pred_list = {}
                 ts_true_list = {}
@@ -1001,15 +1007,9 @@ if __name__ == "__main__":
                     ts_pred_list.update(all_preds)
                     
                 else:
-                    if args.ema_decay:
-                        with ema.average_parameters():
-                            logits = model(batch["data"].T, cls_indexes=cls_indexes, 
-                                   token_type_ids=None,
-                                   column_embeddings=batch['table_embedding'] if args.external_table_embedding else None)[0].cpu()
-                    else:
-                        logits = model(batch["data"].T, cls_indexes=cls_indexes, 
-                                    token_type_ids=None,
-                                    column_embeddings=batch['table_embedding'] if args.external_table_embedding else None)[0].cpu()
+                    logits = model(batch["data"].T, cls_indexes=cls_indexes, 
+                                token_type_ids=None,
+                                column_embeddings=batch['table_embedding'] if args.external_table_embedding else None)[0].cpu()
                     # if len(logits.shape) == 2:
                     #     logits = logits.unsqueeze(0)
                     # logits = torch.zeros(cls_indexes.shape[0],
@@ -1101,7 +1101,7 @@ if __name__ == "__main__":
         json.dump(eval_dict, fout)
 
     if accelerator.is_local_main_process and args.wandb:
-        for f1_name in ["f1_macro", "f1_micro", "loss"]:
+        for f1_name in ["f1_macro", "f1_micro"]:
             wandb.log({
                 f"test/{f1_name}:micro_f1": np.mean(ts_micro_f1_all[f1_name]),
                 f"test/{f1_name}:macro_f1": np.mean(ts_macro_f1_all[f1_name]),

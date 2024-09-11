@@ -49,6 +49,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--wandb", type=bool, default=False)
     parser.add_argument("--model", type=str, default="Watchog")
+    parser.add_argument("--use_attention_mask", type=bool, default=False)
     parser.add_argument("--unlabeled_train_only", type=bool, default=True)
     parser.add_argument("--pool_version", type=str, default="v0")
     parser.add_argument("--random_sample", type=bool, default=False)
@@ -205,25 +206,25 @@ if __name__ == "__main__":
 
     if args.from_scratch:
         if "gt" in task:
-            tag_name = "{}/{}-{}-pool{}-unlabeled{}-rand{}-bs{}-ml{}-ne{}-do{}{}".format(
-                taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag, args.pool_version, args.max_unlabeled, args.random_sample,
+            tag_name = "{}/{}-{}-{}-pool{}-unlabeled{}-rand{}-bs{}-ml{}-ne{}-do{}{}".format(
+                taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag, args.comment,args.pool_version, args.max_unlabeled, args.random_sample,
                 batch_size, max_length, num_train_epochs, args.dropout_prob, 
                 '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
         else:
-            tag_name = "{}/{}-{}-bs{}-ml{}-ne{}-do{}{}".format(
-                taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag,
+            tag_name = "{}/{}-{}-{}-bs{}-ml{}-ne{}-do{}{}".format(
+                taskname,  "{}-fromscratch".format(shortcut_name), args.small_tag, args.comment,
                 batch_size, max_length, num_train_epochs, args.dropout_prob, 
                 '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
         
     else:
         if "gt" in task:
-            tag_name = "{}/{}_{}-pool{}-unlabeled{}-rand{}-bs{}-ml{}-ne{}-do{}{}".format(
-                taskname, args.cl_tag.replace('/', '-'),  shortcut_name, args.small_tag, args.pool_version, args.max_unlabeled, args.random_sample,
+            tag_name = "{}/{}_{}-{}-pool{}-unlabeled{}-rand{}-bs{}-ml{}-ne{}-do{}{}".format(
+                taskname, args.cl_tag.replace('/', '-'),  shortcut_name, args.small_tag, args.comment, args.pool_version, args.max_unlabeled, args.random_sample,
                 batch_size, max_length, num_train_epochs, args.dropout_prob,
                 '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
         else:
-            tag_name = "{}/{}_{}-{}-bs{}-ml{}-ne{}-do{}{}".format(
-                taskname, args.cl_tag.replace('/', '-'),  shortcut_name, args.small_tag,
+            tag_name = "{}/{}_{}-{}-{}-bs{}-ml{}-ne{}-do{}{}".format(
+                taskname, args.cl_tag.replace('/', '-'),  shortcut_name, args.small_tag, args.comment,
                 batch_size, max_length, num_train_epochs, args.dropout_prob,
                 '-rs{}'.format(args.random_seed) if args.random_seed != 4649 else '')
 
@@ -268,7 +269,10 @@ if __name__ == "__main__":
     elif "col-popl" in task:
         model = BertForMultiOutputClassificationColPopl(ckpt_hp, device=device, lm=ckpt['hp'].lm, n_seed_cols=int(task[i][-1]), cls_for_md="md" in task)
     else:
-        model = BertForMultiOutputClassification(ckpt_hp, device=device, lm=ckpt['hp'].lm, version=args.pool_version)
+        model = BertForMultiOutputClassification(ckpt_hp, device=device, 
+                                                 lm=ckpt['hp'].lm, 
+                                                 version=args.pool_version,
+                                                 use_attention_mask=args.use_attention_mask)
         
 
     if not args.from_scratch:
