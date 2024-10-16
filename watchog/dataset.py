@@ -18,6 +18,7 @@ import operator
 from .preprocessor import computeTfIdf, tfidfRowSample, preprocess, load_jsonl
 from itertools import chain
 import copy
+from sklearn.preprocessing import LabelEncoder
 
 # map lm name to huggingface's pre-trained model names
 lm_mp = {'roberta': 'roberta-base',
@@ -1375,6 +1376,150 @@ class ColPoplTablewiseDataset(data.Dataset):
         }
 
 
+class SotabCVTablewiseDataset(data.Dataset):
+    """Table dataset for finetuning and evaluating semantic type detection on the Sotab dataset"""
+
+    def __init__(
+            self,
+            # cv: int,
+            split: str,  # train or test
+            tokenizer: AutoTokenizer,
+            gt_only: bool = False,
+            max_length: int = 256,
+            # multicol_only: bool = False,
+            train_ratio: float = 1.0,
+            device: torch.device = None,
+            base_dirpath: str = "/data/yongkang/TU/SOTAB",
+            small_tag: str = "",
+            label_encoder: LabelEncoder = None,
+            max_unlabeled=8,
+            random_sample=False # TODO
+            ):
+        # ?
+        if device is None:
+            device = torch.device('cpu')
+
+        assert split in ["train", "valid", "test"]
+        if split == "train":
+            gt_df = pd.read_csv(os.path.join(base_dirpath, "CTA_training_small_gt.csv"))
+            data_folder = "Train"
+        elif split == "valid":
+            gt_df = pd.read_csv(os.path.join(base_dirpath, "CTA_validation_gt.csv"))
+            data_folder = "Validation"
+        else:  # test
+            gt_df = pd.read_csv(os.path.join(base_dirpath, "CTA_test_gt.csv"))
+            data_folder = "Test"
+
+        # 初始化或加载 LabelEncoder
+        if label_encoder is None:
+            label_encoder = LabelEncoder()
+            label_encoder.fit(gt_df['label'])
+        self.label_encoder = label_encoder
+
+        # gt_set = set(zip(gt_df["table_name"], gt_df["column_index"]))
+
+        table_files = [f for f in os.listdir(os.path.join(base_dirpath, data_folder)) if f in gt_df['table_name'].values]
+
+        mapping_file_path = os.path.join(base_dirpath, "label_mapping.txt")
+        df_csv_path = os.path.join(base_dirpath, f"comma_{split}_fully_deduplicated_sotab.csv")
+
+        # 检查是否存在之前保存的标签映射关系
+        if os.path.exists(mapping_file_path):
+            # 如果存在，直接从文件中读取映射
+            with open(mapping_file_path, 'r') as f:
+                label_mapping = json.load(f)
+            next_label_id = max(label_mapping.values()) + 1
+            print(f"标签映射关系从 {mapping_file_path} 读取成功")
+        else:
+            raise FileNotFoundError(f"{mapping_file_path} 文件不存在，请确认文件路径")
+
+        # 检查 CSV 文件是否存在
+        if os.path.exists(df_csv_path):
+            # 直接从 CSV 文件中读取数据
+            df = pd.read_csv(df_csv_path)
+            print(f"数据已从 {df_csv_path} 加载")
+        else:
+            raise FileNotFoundError(f"{df_csv_path} 文件不存在，请确认文件路径")
+        
+        if split != "train" and gt_only:
+            df = df[df["label"] > -1]
+
+        data_list = []
+
+        df['label'] = df['label'].astype(int)
+        df.drop(df[(df['data'].isna()) & (df['label'] == -1)].index, inplace=True)
+        df['column_index'] = df['column_index'].astype(int)
+        df['data'] = df['data'].astype(str)
+
+        print("start encoder")
+        for i, (index, group_df) in enumerate(df.groupby("table_id")):
+            # if split == "train" and ((i >= num_train) or (i >= valid_index)):
+            #     break
+            # if split == "valid" and i < valid_index:
+            #     continue
+
+            labeled_columns = group_df[group_df['label'] > -1]
+            unlabeled_columns = group_df[group_df['label'] == -1]
+            num_unlabeled = min(max(max_unlabeled-len(labeled_columns), 0), len(unlabeled_columns))
+            unlabeled_columns = unlabeled_columns.sample(num_unlabeled) if random_sample else unlabeled_columns[0:num_unlabeled]
+            group_df = pd.concat([group_df[group_df['label'] > -1], unlabeled_columns]) # TODO
+            group_df.sort_values(by=['column_index'], inplace=True)
+
+            num_labels = len(list(group_df["label"].values))
+            if max_length <= 128:
+                cur_maxlen = min(max_length, 512 // num_labels - 1)
+            else:
+                cur_maxlen = max(1, max_length // num_labels - 1)
+
+            token_ids_list = group_df["data"].apply(lambda x: tokenizer.encode(
+                tokenizer.cls_token + " " + x, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
+                )
+            token_ids = torch.LongTensor(reduce(operator.add,
+                                                token_ids_list)).to(device)
+
+            cls_index_list = [0] + np.cumsum(
+                np.array([len(x) for x in token_ids_list])).tolist()[:-1]
+            
+            for cls_index in cls_index_list:
+                assert token_ids[
+                    cls_index] == tokenizer.cls_token_id, "cls_indexes validation"
+                
+            cls_indexes = torch.LongTensor(cls_index_list).to(device)
+            labels = torch.LongTensor(group_df["label"].values).to(device)
+
+            data_list.append(
+                [index,
+                 len(group_df), token_ids, labels, cls_indexes])
+                # 每处理1000条数据时输出一个标识和最近处理的 DataFrame
+            if (i + 1) % 1000 == 0:
+                print(f"Processed {i + 1} entries. Recent dataframe sample:")
+        print(split, len(data_list))
+        self.table_df = pd.DataFrame(data_list,
+                                     columns=[
+                                         "table_id", "num_col", "data_tensor",
+                                         "label_tensor", "cls_indexes"
+                                     ])
+        """
+        # NOTE: msato contains a small portion of singesle-col tables. keep it to be consistent.  
+        if multicol_only:
+            # Check
+            num_all_tables = len(self.table_df)
+            self.table_df = self.table_df[self.table_df["num_col"] > 1]
+            assert len(self.table_df) == num_all_tables
+        """
+
+    def __len__(self):
+        return len(self.table_df)
+
+    def __getitem__(self, idx):
+        return {
+            "data": self.table_df.iloc[idx]["data_tensor"],
+            "label": self.table_df.iloc[idx]["label_tensor"]
+        }
+        #"idx": torch.LongTensor([idx])}
+        #"cls_indexes": self.table_df.iloc[idx]["cls_indexes"]}
+
+
 class SemtableCVTablewiseDataset(data.Dataset):
 
     def __init__(
@@ -1545,7 +1690,7 @@ class GittablesTablewiseDataset(data.Dataset):
             train_ratio: float = 1.0,
             max_unlabeled=8,
             random_sample=False, # TODO
-            train_only=True): # TODO
+            train_only=False): # TODO
         if device is None:
             device = torch.device('cpu')
         basename = small_tag+ "_cv_{}.csv"
@@ -1670,7 +1815,7 @@ class GittablesColwiseDataset(data.Dataset):
             max_num_col=8,
             sampling_method=None, # TODO
             random_seed=0,
-            train_only=True,
+            train_only=False,
             context_encoding_type="v1",
             adaptive_max_length=False,
             ): # TODO: not used
@@ -1859,7 +2004,7 @@ class GittablesColwiseMaxDataset(data.Dataset):
             train_ratio: float = 1.0,
             max_num_col=8,
             random_sample=False, # TODO
-            train_only=True,
+            train_only=False,
             context_encoding_type="v1",
             adaptive_max_length=False,
             return_table_embedding=False,
@@ -2060,7 +2205,7 @@ class GittablesColwiseDatasetDecoder(data.Dataset):
             train_ratio: float = 1.0,
             max_num_col=8,
             random_sample=False, # TODO
-            train_only=True,
+            train_only=False,
             context_encoding_type="v1"
             ): # TODO: not used
         if device is None:
@@ -2261,6 +2406,623 @@ class GittablesCVTablewiseDataset(data.Dataset):
         return {
             "data": self.table_df.iloc[idx]["data_tensor"],
             "label": self.table_df.iloc[idx]["label_tensor"]
+        }
+        #"idx": torch.LongTensor([idx])}
+        #"cls_indexes": self.table_df.iloc[idx]["cls_indexes"]}
+        
+        
+        
+        
+class GittablesTablewiseIterateDataset(data.Dataset):
+
+    def __init__(
+            self,
+            cv: int,
+            split: str,
+            src: str,  # train or test
+            tokenizer: AutoTokenizer,
+            max_length: int = 256,
+            gt_only: bool = False,
+            device: torch.device = None,
+            base_dirpath: str = "/data/zhihao/TU/GitTables/semtab_gittables/2022",
+            base_tag: str = '', # blank, comma
+            small_tag: str = "",
+            train_ratio: float = 1.0,
+            max_unlabeled=8,
+            random_sample=False, # TODO
+            train_only=False): # TODO
+        if device is None:
+            device = torch.device('cpu')
+        basename = small_tag+ "_cv_{}.csv"
+    
+        if split in ["train", "valid"]:
+            df_list = []
+            for i in range(5):
+                if i == cv:
+                    continue
+                filepath = os.path.join(base_dirpath, basename.format(i))
+                df_list.append(pd.read_csv(filepath))
+                print(split, i)
+            df = pd.concat(df_list, axis=0)
+        else:
+            # test
+            filepath = os.path.join(base_dirpath, basename.format(cv))
+            df = pd.read_csv(filepath)
+            print(split)
+
+
+        if gt_only:
+            df = df[df["class_id"] > -1]
+        if train_only and split != "train":
+            df = df[df["class_id"] > -1]
+
+        
+        data_list = []
+        
+        df['class_id'] = df['class_id'].astype(int)
+        df.drop(df[(df['data'].isna()) & (df['class_id'] == -1)].index, inplace=True)
+        df['col_idx'] = df['col_idx'].astype(int)
+        df['data'] = df['data'].astype(str)
+        
+        num_tables = len(df.groupby("table_id"))
+        valid_index = int(num_tables * 0.8)
+        num_train = int(train_ratio * num_tables * 0.8)        
+        
+        # df.drop(df[(df['data'] == '') & (df['class_id'] == -1)].index, inplace=True)
+        total_num_cols = 0
+        for i, (index, group_df) in enumerate(df.groupby("table_id")):
+            if (split == "train") and ((i >= num_train) or (i >= valid_index)):
+                break
+            if split == "valid" and i < valid_index:
+                continue
+            #     break
+            labeled_columns = group_df[group_df['class_id'] > -1]
+            unlabeled_columns = group_df[group_df['class_id'] == -1]
+            num_unlabeled = min(max(max_unlabeled-len(labeled_columns), 0), len(unlabeled_columns)) if max_unlabeled > 0 else len(unlabeled_columns)
+            unlabeled_columns = unlabeled_columns.sample(num_unlabeled) if random_sample else unlabeled_columns[0:num_unlabeled]
+            # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns.sample(min(10-len(labeled_columns), len(unlabeled_columns)))])
+            # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(10-len(labeled_columns), 0), len(unlabeled_columns))]])
+            group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns]) # TODO
+            group_df.sort_values(by=['col_idx'], inplace=True)
+
+            if max_length <= 128:
+                cur_maxlen = min(max_length, 512 // len(list(group_df["class_id"].values)) - 1)
+            else:
+                cur_maxlen = max(1, max_length // len(list(group_df["class_id"].values)) - 1)
+                
+            token_ids_list = group_df["data"].apply(lambda x: tokenizer.encode(
+                tokenizer.cls_token + " " + x, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
+                )
+            token_ids = torch.LongTensor(reduce(operator.add,
+                                                token_ids_list)).to(device)
+            for col_i in range(len(token_ids_list)):
+                if group_df["class_id"].values[col_i] == -1:
+                    continue
+                target_col_mask = []
+                cls_index_value = 0
+                context_id = 1
+                for col_j in range(len(token_ids_list)):
+                    if col_j == col_i:
+                        target_col_mask += [0] * len(token_ids_list[col_j])
+                    else:
+                        target_col_mask += [context_id] * len(token_ids_list[col_j])
+                        context_id += 1
+                    if col_j < col_i:
+                        cls_index_value += len(token_ids_list[col_j])
+                cls_index_list = [cls_index_value] 
+                for cls_index in cls_index_list:
+                    assert token_ids[
+                        cls_index] == tokenizer.cls_token_id, "cls_indexes validation"
+                cls_indexes = torch.LongTensor(cls_index_list).to(device)
+                class_ids = torch.LongTensor(
+                    [group_df["class_id"].values[col_i]]).to(device)
+                target_col_mask = torch.LongTensor(target_col_mask).to(device)
+                data_list.append(
+                    [index,
+                    len(group_df), token_ids, class_ids, cls_indexes, target_col_mask])                
+        print(split, len(data_list))
+        self.table_df = pd.DataFrame(data_list,
+                                     columns=[
+                                         "table_id", "num_col", "data_tensor",
+                                         "label_tensor", "cls_indexes", "target_col_mask"
+                                     ])
+        """
+        # NOTE: msato contains a small portion of single-col tables. keep it to be consistent.  
+        if multicol_only:
+            # Check
+            num_all_tables = len(self.table_df)
+            self.table_df = self.table_df[self.table_df["num_col"] > 1]
+            assert len(self.table_df) == num_all_tables
+        """
+
+    def __len__(self):
+        return len(self.table_df)
+
+    def __getitem__(self, idx):
+        return {
+            "data": self.table_df.iloc[idx]["data_tensor"],
+            "label": self.table_df.iloc[idx]["label_tensor"],
+            "cls_indexes": self.table_df.iloc[idx]["cls_indexes"],
+            "target_col_mask": self.table_df.iloc[idx]["target_col_mask"],
+        }
+        #"idx": torch.LongTensor([idx])}
+        #"cls_indexes": self.table_df.iloc[idx]["cls_indexes"]}
+        
+        
+        
+class VerificationDataset(data.Dataset):
+    def __init__(
+            self,
+            data_path: str = "/data/zhihao/TU/Watchog/verification/veri_data.pth",
+            max_list_length: int = 10,
+            pos_ratio : int = 0.5, # None: only control pos_ratio to be less than 0.5
+            label_padding_value: int = -1,
+            data_padding_value: int = 101,
+            ): 
+        data_raw = torch.load(data_path)
+        veri_label = data_raw["label"]
+        veri_data = data_raw["data"]
+        veri_cls_indexes = data_raw["cls_indexes"]
+        self.label_padding_value = label_padding_value
+        self.data_padding_value = data_padding_value
+        self.max_list_length = max_list_length
+        self.pos_ratio = pos_ratio
+        self.veri_label = {}
+        self.veri_data = {}
+        self.veri_cls_indexes = {}
+        i = 0
+        for veri_i in veri_label:
+            labels_i = torch.tensor(veri_label[veri_i]).reshape(-1)
+            
+            if 0 not in labels_i or 1 not in labels_i:
+                continue
+            self.veri_data[i] = veri_data[veri_i]
+            self.veri_label[i] = labels_i
+            self.veri_cls_indexes[i] = veri_cls_indexes[veri_i]
+            i += 1
+    def sample(self, labels):
+        labels = labels.tolist()  # Convert tensor to list for easier manipulation
+        positive_indices = [i for i, label in enumerate(labels) if label == 1]
+        negative_indices = [i for i, label in enumerate(labels) if label == 0]
+
+        # Determine how many positives we can sample, respecting the ratio requirement
+        max_num_positives = max_num_negatives = min(len(positive_indices), len(negative_indices), self.max_list_length // 2)
+        
+        # Randomly sample the positives and negatives
+        sampled_positives = random.sample(positive_indices, max_num_positives)
+        sampled_negatives = random.sample(negative_indices, max_num_negatives)
+
+        # Combine and shuffle the indices
+        sampled_indices = sampled_positives + sampled_negatives
+
+        return sampled_indices
+        # {"data": veri_data, "label": veri_label, "cls_indexes": veri_cls_indexes}
+    def __len__(self):
+        return len(self.veri_data)
+
+    def __getitem__(self, idx):
+        labels = self.veri_label[idx]
+        sampled_indices = self.sample(labels)
+        sampled_labels = torch.tensor([labels[i] for i in sampled_indices]).reshape(-1)
+        sampled_data = [self.veri_data[idx][i].reshape(-1) for i in sampled_indices]
+        sampled_cls_indexes = torch.tensor([self.veri_cls_indexes[idx][i] for i in sampled_indices], dtype=torch.long)
+        if len(sampled_indices) < self.max_list_length:
+            sampled_labels = torch.cat([sampled_labels, torch.ones(self.max_list_length - len(sampled_labels))*self.label_padding_value])
+            sampled_data.extend([torch.tensor([self.data_padding_value]) for _ in range(self.max_list_length - len(sampled_data))])
+            sampled_cls_indexes = torch.cat([sampled_cls_indexes, torch.zeros(self.max_list_length - len(sampled_cls_indexes))])
+        return {
+            "data": sampled_data,
+            "label": sampled_labels,
+            "cls_indexes": sampled_cls_indexes, 
+        }
+        
+class VerificationBinaryDataset(data.Dataset):
+    def __init__(
+            self,
+            data_path: str = "/data/zhihao/TU/Watchog/verification/veri_data.pth",
+            pos_ratio = None, # clone the negative samples
+            context = None,
+            ): 
+        data_raw = torch.load(data_path)
+        veri_label = data_raw["label"]
+        veri_data = data_raw["data"]
+        veri_cls_indexes = data_raw["cls_indexes"]
+        veri_embs = data_raw["embs"]
+        veri_target_embs = data_raw["target_embs"]
+        veri_logits = data_raw["logits"]
+        
+        self.neg_expand = int(1/pos_ratio)-1 if pos_ratio is not None else 1
+        self.veri_label = {}
+        self.veri_data = {}
+        self.veri_embs = {}
+        self.veri_cls_indexes = {}
+        self.veri_logits = {}
+        i = 0
+        for veri_i in veri_label:
+            for veri_j in range(len(veri_label[veri_i])):
+                if veri_label[veri_i][veri_j] == 1:
+                    labels_i = torch.tensor([1]).reshape(-1)
+                    self.veri_data[i] = veri_data[veri_i][veri_j]
+                    self.veri_label[i] = labels_i
+                    self.veri_cls_indexes[i] = veri_cls_indexes[veri_i][veri_j] 
+                    
+                    if context is None or context == "None":
+                        self.veri_embs[i] = veri_embs[veri_i][veri_j]
+                    elif context == "init":
+                        self.veri_embs[i] = torch.cat([veri_embs[veri_i][0].reshape(-1), veri_embs[veri_i][veri_j].reshape(-1)])
+                    elif context == "target":
+                        self.veri_embs[i] = torch.cat([veri_target_embs[veri_i][0].reshape(-1), veri_embs[veri_i][veri_j].reshape(-1)])
+                    else:
+                        raise ValueError("context {} is not supported".format(context))
+                        
+                    self.veri_logits[i] = veri_logits[veri_i][veri_j]
+                    i += 1
+                else:
+                    for _ in range(self.neg_expand):
+                        labels_i = torch.tensor([0]).reshape(-1)
+                        self.veri_data[i] = veri_data[veri_i][veri_j]
+                        self.veri_label[i] = labels_i
+                        self.veri_cls_indexes[i] = veri_cls_indexes[veri_i][veri_j]
+                        if context is None or context == "None":
+                            self.veri_embs[i] = veri_embs[veri_i][veri_j]
+                        elif context == "init":
+                            self.veri_embs[i] = torch.cat([veri_embs[veri_i][0].reshape(-1), veri_embs[veri_i][veri_j].reshape(-1)])
+                        elif context == "target":
+                            self.veri_embs[i] = torch.cat([veri_target_embs[veri_i][0].reshape(-1), veri_embs[veri_i][veri_j].reshape(-1)])
+                        else:
+                            raise ValueError("context {} is not supported".format(context))
+                        
+                        self.veri_logits[i] = veri_logits[veri_i][veri_j]
+                        i += 1
+
+    def __len__(self):
+        return len(self.veri_data)
+
+    def __getitem__(self, idx):
+        return {
+            "data": self.veri_data[idx].reshape(-1),
+            "embs": self.veri_embs[idx].reshape(-1),
+            "label": self.veri_label[idx],
+            "logits": self.veri_logits[idx],
+            "cls_indexes": self.veri_cls_indexes[idx], 
+        }
+        
+        
+        
+class VerificationBinaryDropDataset(data.Dataset):
+    def __init__(
+            self,
+            data_path: str = "/data/zhihao/TU/Watchog/verification/veri_data_drop_0.pth",
+            context = None,
+            label_version = 0,
+            ): 
+        data_raw = torch.load(data_path)
+        veri_label = data_raw["label"]
+        veri_data = data_raw["data"]
+        veri_cls_indexes = data_raw["cls_indexes"]
+        veri_embs = data_raw["embs"]
+        veri_target_embs = data_raw["target_embs"]
+        veri_logits = data_raw["logits"]
+        
+        self.veri_label = {}
+        self.veri_data = {}
+        self.veri_embs = {}
+        self.veri_cls_indexes = {}
+        self.veri_logits = {}
+        i = 0
+        for veri_i in veri_label:
+            context_embs = veri_embs[veri_i][0].reshape(-1)
+            for veri_j in range(1, len(veri_label[veri_i])):
+                if label_version == 0:
+                    if veri_label[veri_i][veri_j] == 2 or veri_label[veri_i][veri_j-1] == 3:
+                        continue
+                    label_i = veri_label[veri_i][veri_j].reshape(-1)
+                elif label_version == 1:
+                    if veri_label[veri_i][veri_j] == 2 or veri_label[veri_i][veri_j] == 3:
+                        label_i = torch.tensor([0]).reshape(-1)
+                    else:
+                        label_i = veri_label[veri_i][veri_j].reshape(-1)
+                elif label_version == 2:
+                    if veri_label[veri_i][veri_j] == 2 or veri_label[veri_i][veri_j] == 3:
+                        label_i = torch.tensor([1]).reshape(-1)
+                    else:
+                        label_i = veri_label[veri_i][veri_j].reshape(-1)
+                elif label_version == 3:
+                    if veri_label[veri_i][veri_j] == 2:
+                        label_i = torch.tensor([1]).reshape(-1)
+                    elif veri_label[veri_i][veri_j] == 3:
+                        label_i = torch.tensor([0]).reshape(-1)
+                    else:
+                        label_i = veri_label[veri_i][veri_j].reshape(-1)
+                else:
+                    raise ValueError("label_version {} is not supported".format(label_version))
+                self.veri_data[i] = veri_data[veri_i][veri_j]
+                self.veri_label[i] = label_i
+                self.veri_cls_indexes[i] = veri_cls_indexes[veri_i][veri_j] 
+                
+
+                if context == "concat":
+                    self.veri_embs[i] = torch.cat([context_embs, veri_embs[veri_i][veri_j].reshape(-1)])
+                elif context == "substract":
+                    self.veri_embs[i] = context_embs - veri_embs[veri_i][veri_j].reshape(-1)
+                elif context == "substract_abs":
+                    self.veri_embs[i] = torch.abs(context_embs - veri_embs[veri_i][veri_j].reshape(-1))
+                elif context == "sbert":
+                    self.veri_embs[i] = torch.cat([context_embs, veri_embs[veri_i][veri_j].reshape(-1), torch.abs(context_embs - veri_embs[veri_i][veri_j].reshape(-1))])
+                else:
+                    raise ValueError("context {} is not supported".format(context))
+                    
+                self.veri_logits[i] = veri_logits[veri_i][veri_j]
+                i += 1
+
+
+    def __len__(self):
+        return len(self.veri_embs)
+
+    def __getitem__(self, idx):
+        return {
+            "data": self.veri_data[idx].reshape(-1),
+            "embs": self.veri_embs[idx].reshape(-1),
+            "label": self.veri_label[idx],
+            "logits": self.veri_logits[idx],
+            "cls_indexes": self.veri_cls_indexes[idx], 
+        }
+
+from collections import defaultdict
+class VerificationCompareDataset(data.Dataset):
+    def __init__(
+            self,
+            data_path: str = "/data/zhihao/TU/Watchog/verification/gt-semtab22-dbpedia-all0_veri_data.pth",
+            pos_ratio = None, # clone the negative samples
+            context = None,
+            ): 
+        
+        self.num_neg = int((1-pos_ratio)/pos_ratio)
+        self.context = context
+        
+        data_raw = torch.load(data_path)
+        veri_label = data_raw["label"]
+        veri_data = data_raw["data"]
+        veri_cls_indexes = data_raw["cls_indexes"]
+        veri_embs = data_raw["embs"]
+        veri_target_embs = data_raw["target_embs"]
+        veri_logits = data_raw["logits"]
+        
+        
+        self.veri_pos_embs = defaultdict(list)
+        self.veri_neg_embs = defaultdict(list)
+        self.veri_anchor_embs = defaultdict(list)
+        
+        # self.veri_label = {}
+        # self.veri_logits = {}
+        # self.veri_cls_indexes = {}
+        # self.veri_logits = {}
+        i = 0
+        for veri_i in veri_label:
+            if 1 not in veri_label[veri_i] or 0 not in veri_label[veri_i]:
+                continue
+            # save anchor emb
+            if context is None or context == "None" or context == "init":
+                self.veri_anchor_embs[i].append(veri_embs[veri_i][0])
+            elif context == "target":
+                self.veri_anchor_embs[i].append(veri_target_embs[veri_i][0])        
+            else:
+                raise ValueError("context {} is not supported".format(context))
+            # save pos and neg embs
+            for veri_j in range(len(veri_label[veri_i])):
+                if veri_label[veri_i][veri_j] == 1:
+                    self.veri_pos_embs[i].append(veri_embs[veri_i][veri_j])
+                else:
+                    self.veri_neg_embs[i].append(veri_embs[veri_i][veri_j])
+            i += 1
+
+        # Maintain the iteration state for each anchor
+        self.pos_iter = {anchor_idx: iter(pos_embs) for anchor_idx, pos_embs in self.veri_pos_embs.items()}
+        self.neg_iter = {anchor_idx: iter(neg_embs) for anchor_idx, neg_embs in self.veri_neg_embs.items()}
+
+
+    def __len__(self):
+        return len(self.veri_anchor_embs)
+
+    def reset_iterators(self, anchor_idx, type="pos"):
+        """Reset the iterator for the given anchor when all positives or negatives are iterated through."""
+        if type == "pos":
+            self.pos_iter[anchor_idx] = iter(self.veri_pos_embs[anchor_idx])
+            random.shuffle(self.veri_pos_embs[anchor_idx])
+        else:
+            self.neg_iter[anchor_idx] = iter(self.veri_neg_embs[anchor_idx])
+            random.shuffle(self.veri_neg_embs[anchor_idx])
+
+
+    def __getitem__(self, idx):
+        
+        anchor_emb = self.veri_anchor_embs[idx]
+
+        # Get one positive embedding
+        try:
+            pos_emb = next(self.pos_iter[idx])
+        except StopIteration:
+            # If we've exhausted all positives, reset and shuffle
+            self.reset_iterators(idx, type="pos")
+            pos_emb = next(self.pos_iter[idx])
+
+        # Get N negative embeddings
+        neg_embs = []
+        for _ in range(self.num_neg):
+            try:
+                neg_emb = next(self.neg_iter[idx])
+                neg_embs.append(neg_emb)
+            except StopIteration:
+                # If we've exhausted all negatives, reset and shuffle
+                self.reset_iterators(idx, type="neg")
+                neg_emb = next(self.neg_iter[idx])
+                neg_embs.append(neg_emb)
+        if self.context is None or self.context == "None":
+            embs = [pos_emb] + neg_embs
+        else:
+            embs = [anchor_emb, pos_emb] + neg_embs
+        embs = torch.stack(embs, dim=0)
+        
+        
+        
+        return {
+            # "data": self.veri_data[idx].reshape(-1),
+            "embs": embs,
+            # "label": self.veri_label[idx],
+            # "logits": self.veri_logits[idx],
+            # "cls_indexes": self.veri_cls_indexes[idx], 
+        }
+
+
+class SOTABTablewiseIterateDataset(data.Dataset):
+
+    def __init__(
+            self,
+            # cv: int,
+            split: str,  # train or test
+            tokenizer: AutoTokenizer,
+            max_length: int = 256,
+            # multicol_only: bool = False,
+            train_ratio: float = 1.0,
+            device: torch.device = None,
+            base_dirpath: str = "/data/yongkang/TU/SOTAB",
+            small_tag: str = "",
+            label_encoder: LabelEncoder = None,
+            max_unlabeled=8,
+            random_sample=False, # TODO
+            gt_only=True,
+            ):
+        # 
+        base_dirpath = "/data/yongkang/TU/SOTAB"
+        if device is None:
+            device = torch.device('cpu')
+
+        assert split in ["train", "valid", "test"]
+        if split == "train":
+            gt_df = pd.read_csv(os.path.join(base_dirpath, "CTA_training_small_gt.csv"))
+            data_folder = "Train"
+        elif split == "valid":
+            gt_df = pd.read_csv(os.path.join(base_dirpath, "CTA_validation_gt.csv"))
+            data_folder = "Validation"
+        else:  # test
+            gt_df = pd.read_csv(os.path.join(base_dirpath, "CTA_test_gt.csv"))
+            data_folder = "Test"
+
+        # 初始化或加载 LabelEncoder
+        if label_encoder is None:
+            label_encoder = LabelEncoder()
+            label_encoder.fit(gt_df['label'])
+        self.label_encoder = label_encoder
+
+        # gt_set = set(zip(gt_df["table_name"], gt_df["column_index"]))
+
+        table_files = [f for f in os.listdir(os.path.join(base_dirpath, data_folder)) if f in gt_df['table_name'].values]
+
+        mapping_file_path = os.path.join(base_dirpath, "label_mapping.txt")
+        df_csv_path = os.path.join(base_dirpath, f"comma_{split}_fully_deduplicated_sotab.csv")
+
+        # 检查是否存在之前保存的标签映射关系
+        if os.path.exists(mapping_file_path):
+            # 如果存在，直接从文件中读取映射
+            with open(mapping_file_path, 'r') as f:
+                label_mapping = json.load(f)
+            next_label_id = max(label_mapping.values()) + 1
+            print(f"标签映射关系从 {mapping_file_path} 读取成功")
+        else:
+            raise FileNotFoundError(f"{mapping_file_path} 文件不存在，请确认文件路径")
+
+        # 检查 CSV 文件是否存在
+        if os.path.exists(df_csv_path):
+            # 直接从 CSV 文件中读取数据
+            df = pd.read_csv(df_csv_path)
+            print(f"数据已从 {df_csv_path} 加载")
+        else:
+            raise FileNotFoundError(f"{df_csv_path} 文件不存在，请确认文件路径")
+        
+        if gt_only:
+            df = df[df["label"] > -1]
+
+        data_list = []
+
+        df['label'] = df['label'].astype(int)
+        df.drop(df[(df['data'].isna()) & (df['label'] == -1)].index, inplace=True)
+        df['column_index'] = df['column_index'].astype(int)
+        df['data'] = df['data'].astype(str)
+
+        print("start encoder")
+        for i, (index, group_df) in enumerate(df.groupby("table_id")):
+            # if split == "train" and ((i >= num_train) or (i >= valid_index)):
+            #     break
+            # if split == "valid" and i < valid_index:
+            #     continue
+
+            labeled_columns = group_df[group_df['label'] > -1]
+            unlabeled_columns = group_df[group_df['label'] == -1]
+            num_unlabeled = min(max(max_unlabeled-len(labeled_columns), 0), len(unlabeled_columns))
+            unlabeled_columns = unlabeled_columns.sample(num_unlabeled) if random_sample else unlabeled_columns[0:num_unlabeled]
+            group_df = pd.concat([group_df[group_df['label'] > -1], unlabeled_columns]) # TODO
+            group_df.sort_values(by=['column_index'], inplace=True)
+
+            num_labels = len(list(group_df["label"].values))
+            if max_length <= 128:
+                cur_maxlen = min(max_length, 512 // num_labels - 1)
+            else:
+                cur_maxlen = max(1, max_length // num_labels - 1)
+
+            token_ids_list = group_df["data"].apply(lambda x: tokenizer.encode(
+                tokenizer.cls_token + " " + x, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
+                )
+            token_ids = torch.LongTensor(reduce(operator.add,
+                                                token_ids_list)).to(device)
+            for col_i in range(len(token_ids_list)):
+                if group_df["label"].values[col_i] == -1:
+                    continue
+                target_col_mask = []
+                cls_index_value = 0
+                context_id = 1
+                for col_j in range(len(token_ids_list)):
+                    if col_j == col_i:
+                        target_col_mask += [0] * len(token_ids_list[col_j])
+                    else:
+                        target_col_mask += [context_id] * len(token_ids_list[col_j])
+                        context_id += 1
+                    if col_j < col_i:
+                        cls_index_value += len(token_ids_list[col_j])
+                cls_index_list = [cls_index_value] 
+                for cls_index in cls_index_list:
+                    assert token_ids[
+                        cls_index] == tokenizer.cls_token_id, "cls_indexes validation"
+                cls_indexes = torch.LongTensor(cls_index_list).to(device)
+                class_ids = torch.LongTensor(
+                    [group_df["label"].values[col_i]]).to(device)
+                target_col_mask = torch.LongTensor(target_col_mask).to(device)
+                data_list.append(
+                    [index,
+                    len(group_df), token_ids, class_ids, cls_indexes, target_col_mask])                
+        print(split, len(data_list))
+        self.table_df = pd.DataFrame(data_list,
+                                     columns=[
+                                         "table_id", "num_col", "data_tensor",
+                                         "label_tensor", "cls_indexes", "target_col_mask"
+                                     ])
+        """
+        # NOTE: msato contains a small portion of single-col tables. keep it to be consistent.  
+        if multicol_only:
+            # Check
+            num_all_tables = len(self.table_df)
+            self.table_df = self.table_df[self.table_df["num_col"] > 1]
+            assert len(self.table_df) == num_all_tables
+        """
+
+    def __len__(self):
+        return len(self.table_df)
+
+    def __getitem__(self, idx):
+        return {
+            "data": self.table_df.iloc[idx]["data_tensor"],
+            "label": self.table_df.iloc[idx]["label_tensor"],
+            "cls_indexes": self.table_df.iloc[idx]["cls_indexes"],
+            "target_col_mask": self.table_df.iloc[idx]["target_col_mask"],
         }
         #"idx": torch.LongTensor([idx])}
         #"cls_indexes": self.table_df.iloc[idx]["cls_indexes"]}

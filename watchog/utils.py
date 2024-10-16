@@ -75,7 +75,9 @@ task_num_class_dict = {
         "gt-semtab22-dbpedia-all3": 101,
         "gt-semtab22-dbpedia-all4": 101,
         "gt-semtab22-schema-class-all": 21,
-        "gt-semtab22-schema-property-all": 53
+        "gt-semtab22-schema-property-all": 53,
+        "gt-sotab": 91,
+        "SOTAB": 91
     }
 
 
@@ -108,6 +110,96 @@ def collate_fn(pad_token_id, data_only=True):
         
     return padder
 
+
+def collate_fn_iter(pad_token_id, data_only=True):
+    '''padder for input batch'''
+
+    def padder(samples):    
+        data = torch.nn.utils.rnn.pad_sequence(
+            [sample["data"] for sample in samples], padding_value=pad_token_id)
+        if not data_only:
+            label = torch.nn.utils.rnn.pad_sequence(
+                [sample["label"] for sample in samples], padding_value=-1)
+        else:
+            label = torch.cat([sample["label"] for sample in samples])
+        batch = {"data": data, "label": label}
+        if "idx" in samples[0]:
+            batch["idx"] = [sample["idx"] for sample in samples]
+        if "cls_indexes" in samples[0]:
+            cls_indexes = torch.nn.utils.rnn.pad_sequence(
+                [sample["cls_indexes"] for sample in samples], padding_value=0)
+            batch["cls_indexes"] = cls_indexes
+        if "target_col_mask" in samples[0]:
+            target_col_mask = torch.nn.utils.rnn.pad_sequence(
+                [sample["target_col_mask"] for sample in samples], padding_value=-1)
+            batch["target_col_mask"] = target_col_mask
+        if "table_embedding" in samples[0]:
+            table_embeddings = [sample["table_embedding"] for sample in samples]
+            batch["table_embedding"] = torch.stack(table_embeddings, dim=0)
+        return batch
+        
+    return padder
+
+
+
+def veri_collate_fn(pad_token_id, binary=False):
+    '''padder for input batch'''
+    
+    def padder(samples):    
+        batch = {}
+        if "embs" in samples[0]:
+            embs = torch.stack([sample["embs"] for sample in samples], dim=0)
+            batch["embs"] = embs
+        
+        if "data" in samples[0]:
+            data = []
+            for sample in samples:
+                data.extend(sample["data"])
+            data =torch.nn.utils.rnn.pad_sequence(
+                data, padding_value=pad_token_id)
+            batch["data"] = data
+        if "label" in samples[0]:
+            label = torch.cat([sample["label"] for sample in samples], dim=-1)
+            batch["label"] = label
+        if "cls_indexes" in samples[0]:
+            i = 0
+            cls_indexes = []
+            for sample in samples:
+                for value in sample["cls_indexes"]:
+                    cls_indexes.append(torch.tensor([i, value]))
+                    i += 1
+            cls_indexes = torch.stack(cls_indexes, dim=0).long()
+            batch["cls_indexes"] = cls_indexes
+        return batch
+    
+    def padder_binary(samples):   
+
+        label = torch.cat([sample["label"] for sample in samples], dim=-1)
+        batch = {"label": label}
+        if  "data" in samples[0]:
+            data = torch.nn.utils.rnn.pad_sequence(
+                [sample["data"] for sample in samples], padding_value=pad_token_id)
+            batch["data"] = data
+        if "cls_indexes" in samples[0]:
+            i = 0
+            cls_indexes = []
+            for sample in samples:
+                value =  sample["cls_indexes"]
+                cls_indexes.append(torch.tensor([i, value]))
+                i += 1
+            cls_indexes = torch.stack(cls_indexes, dim=0).long()
+            batch["cls_indexes"] = cls_indexes
+        if "embs" in samples[0]:
+            embs = torch.stack([sample["embs"] for sample in samples], dim=0)
+            batch["embs"] = embs
+        if "logits" in samples[0]:
+            logits = torch.stack([sample["logits"] for sample in samples], dim=0)
+            batch["logits"] = logits
+        return batch
+    if binary:
+        return padder_binary
+    else:
+        return padder
 
 def load_checkpoint(ckpt):
     """Load a model from a checkpoint.

@@ -27,7 +27,7 @@ gpus = '0'
 small_tag = ''
 comment = "AttnMask"
 
-cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py \
+cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py --wandb True \
             --shortcut_name {} --task {} --max_length {} --batch_size {} --epoch {} \
             --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
     gpus, base_model, task,  ml, bs, n_epochs, dropout_prob,
