@@ -44,6 +44,9 @@ import wandb
 import itertools
 from copy import deepcopy
 
+import warnings
+warnings.filterwarnings("ignore")
+
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -81,16 +84,12 @@ if __name__ == "__main__":
     parser.add_argument("--reweight", type=bool, default=True) 
     parser.add_argument("--veri_module", type=str, default="ffn") 
     parser.add_argument("--context", type=str, default=None) 
-    parser.add_argument("--data_version", type=str, default="5") 
-    # None: only drop up to 2/half columns; 1: drop more column until there are pos permutation; 2: drop up to 1 columns
-    # 3: add more negtives by drop up to 1 columns 4: train&valid, only drop up to 2/half columns 
-    # 5: train&valid, add more negtives by drop up to 1 columns
-    # 6: train only init pos, all neg, all valid
-    # 7: valid, permuation up to 3 cols
-    # 8: train (up to 3 cols, neg only) + valid (7)
-    # 9: train (up to 3 cols, neg only ) + valid (5)
-    # 10: train (up to 3 cols, all negs and pos) + valid (5)
-    parser.add_argument("--test_version", type=str, default=None) # None: only drop up to 2/half columns; 2: drop up to 1 columns
+    parser.add_argument("--data_version", type=str, default="0") 
+    # 0: train gt + veri 4 (column_num = 1 is missed)
+    # 1: train gt + veri 4 (column_num = 1 is missed) + veri 8 negs
+    # 2: veri 4
+    # 3: veri 4 + veri 8 neg
+    parser.add_argument("--test_version", type=str, default="0") # None: only drop up to 2/half columns; 2: drop up to 1 columns
   
     parser.add_argument("--use_attention_mask", type=bool, default=True)
     parser.add_argument("--unlabeled_train_only", type=bool, default=True)
@@ -169,7 +168,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate") # 1e-5, 2e-5
     parser.add_argument("--task",
                         type=str,
-                        default='SOTAB',
+                        default="gt-semtab22-dbpedia-all0",
                         choices=[
                             "sato0", "sato1", "sato2", "sato3", "sato4",
                             "msato0", "msato1", "msato2", "msato3", "msato4",
@@ -212,10 +211,12 @@ if __name__ == "__main__":
                         help="e.g., by_table_t5_v1")
     parser.add_argument("--data_path",
                         type=str,
-                        default="/data/yongkang/TU/")
+                        default="/data/zhihao/TU/")
+                        # default="/data/yongkang/TU/")
     parser.add_argument("--pretrained_ckpt_path",
                         type=str,
                         default="/data/zhihao/TU/Watchog/model/")    
+   
 
     args = parser.parse_args()
     task = args.task
@@ -325,7 +326,7 @@ if __name__ == "__main__":
                                                  version=args.pool_version,
                                                  use_attention_mask=args.use_attention_mask)
         if args.task == 'gt-semtab22-dbpedia-all0':
-            best_state_dict = torch.load("/data/zhihao/TU/Watchog/outputs/gt-semtab22-dbpedia-all0/bert-base-uncased-fromscratch-semi1-Repeat@5-AttnMask-UnlabelValid-max-unlabeled@8-poolv0-unlabeled8-randFalse-bs16-ml128-ne50-do0.1_best_f1_macro.pt", map_location=device)
+            best_state_dict = torch.load("/data/zhihao/TU/Watchog/outputs/gt-semtab22-dbpedia-all0/bert-base-uncased-fromscratch-semi1-GT-Repeat@5-AttnMask-max-unlabeled@8-poolv0-unlabeled8-randTrue-bs16-ml128-ne50-do0.1_best_last_3.pt", map_location=device)
         elif args.task == 'SOTAB':
             best_state_dict = torch.load("/data/yongkang/TU/Watchog/outputs/SOTAB/bert-base-uncased-fromscratch-comma-bs16-ml128-ne50-do0.5_fully_deduplicated_best_f1_micro.pt", map_location=device)
         else:
@@ -416,9 +417,11 @@ if __name__ == "__main__":
             if task[-1] in "01234":
                 cv = int(task[-1])
                 if args.data_version is not None or args.data_version != "None":
-                    veri_dataset = VerificationBinaryDataset(data_path=f"/data/zhihao/TU/Watchog/verification/{args.task}_veri_data_{args.data_version}.pth", pos_ratio=args.pos_ratio if not args.reweight else None, context=args.context)
+                    veri_dataset = VerificationBinaryDataset(data_path=f"/data/zhihao/TU/Watchog/verification/{args.task}/GT_{args.max_unlabeled}_veri_data_{args.data_version}.pth", pos_ratio=args.pos_ratio if not args.reweight else None, context=args.context)
+                    print(f"Using veri data: {args.task}/GT_{args.max_unlabeled}_veri_data_{args.data_version}")
                 else:
-                    veri_dataset = VerificationBinaryDataset(data_path=f"/data/zhihao/TU/Watchog/verification/{args.task}_veri_data.pth", pos_ratio=args.pos_ratio if not args.reweight else None, context=args.context)
+                    veri_dataset = VerificationBinaryDataset(data_path=f"/data/zhihao/TU/Watchog/verification/{args.task}/GT_{args.max_unlabeled}_veri_data.pth", pos_ratio=args.pos_ratio if not args.reweight else None, context=args.context)
+                    print(f"Using veri data: {args.task}/GT_{args.max_unlabeled}_veri_data")
                 # veri_dataset = VerificationBinaryDataset(pos_ratio=args.pos_ratio)
                 veri_padder = veri_collate_fn(0, binary=True)
                 veri_dataloader = DataLoader(
@@ -427,25 +430,26 @@ if __name__ == "__main__":
                 
                 
                 
-                test_dataset_iter = GittablesTablewiseIterateDataset(cv=cv,
-                            split="test", src=src,
-                            tokenizer=tokenizer,
-                            max_length=max_length,
-                            gt_only='all' not in task,
-                            device=device,
-                            base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
-                            small_tag="semi1")
-                padder = collate_fn_iter(tokenizer.pad_token_id)
-                test_dataloader_iter = DataLoader(test_dataset_iter,
-                                                batch_size=1,
-                                            #   collate_fn=collate_fn)
-                                            collate_fn=padder) 
+                # test_dataset_iter = GittablesTablewiseIterateDataset(cv=cv,
+                #             split="test", src=src,
+                #             tokenizer=tokenizer,
+                #             max_length=max_length,
+                #             gt_only='all' not in task,
+                #             device=device,
+                #             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
+                #             small_tag="semi1")
+                # padder = collate_fn_iter(tokenizer.pad_token_id)
+                # test_dataloader_iter = DataLoader(test_dataset_iter,
+                #                                 batch_size=1,
+                #                             #   collate_fn=collate_fn)
+                                            # collate_fn=padder) 
                 if args.test_version is None or args.test_version == "None":
                     test_dataset = torch.load(f"/data/zhihao/TU/Watchog/verification/{args.task}_test_data.pth")
                 else:
                     test_dataset = torch.load(f"/data/zhihao/TU/Watchog/verification/{args.task}_test_data_{args.test_version}.pth")
                 test_embs = test_dataset['embs']
                 test_logits = test_dataset['logits']
+                test_class = test_dataset['class']
                 test_embs_target = test_dataset['target_embs'] if 'target_embs' in test_dataset else None
             else:
                 raise ValueError("cv must be in 01234")
@@ -702,7 +706,7 @@ if __name__ == "__main__":
                 logits_test = []
 
                 with torch.no_grad():
-                    for batch_idx, batch in enumerate(test_dataloader_iter):
+                    for batch_idx, batch in enumerate(test_embs):
                         embs = test_embs[batch_idx][0].reshape(-1).to(device)
                         logits = test_logits[batch_idx][0].reshape(-1).to(device)
                         # scores_init = verifier(embs)
@@ -729,7 +733,7 @@ if __name__ == "__main__":
                             if scores_temp > max_score:
                                 max_score = scores_temp
                                 logits = logits_temp.clone()
-                        labels_test.append(batch["label"].cpu())
+                        labels_test.append(torch.tensor(test_class[batch_idx][0]).reshape([-1,1]))
                         logits_test.append(logits.detach().cpu())
                     labels_test = torch.cat(labels_test, dim=0)
                     logits_test = torch.stack(logits_test, dim=0)

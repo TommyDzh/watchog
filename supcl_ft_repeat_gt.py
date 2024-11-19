@@ -377,7 +377,7 @@ if __name__ == "__main__":
                                                 src=src,
                                                 tokenizer=tokenizer,
                                                 max_length=max_length,
-                                                gt_only='all' not in task,
+                                                gt_only=True,
                                                 device=device,
                                                 base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                                 small_tag=args.small_tag,
@@ -387,7 +387,18 @@ if __name__ == "__main__":
                                                 split="valid", src=src,
                                                 tokenizer=tokenizer,
                                                 max_length=max_length,
-                                                gt_only='all' not in task or args.unlabeled_train_only,
+                                                gt_only=True,
+                                                device=device,
+                                                base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
+                                                small_tag=args.small_tag,
+                                                max_unlabeled=args.max_unlabeled,
+                                                )
+
+                    valid_dataset_unlabel = dataset_cls(cv=cv,
+                                                split="valid", src=src,
+                                                tokenizer=tokenizer,
+                                                max_length=max_length,
+                                                gt_only=False,
                                                 device=device,
                                                 base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                                 small_tag=args.small_tag,
@@ -404,11 +415,15 @@ if __name__ == "__main__":
                                                     batch_size=batch_size,
                                                 #   collate_fn=collate_fn)
                                                 collate_fn=padder)
+                    valid_dataloader_unlabel = DataLoader(valid_dataset_unlabel,
+                                                    batch_size=batch_size,
+                                                #   collate_fn=collate_fn)
+                                                collate_fn=padder)
                     test_dataset = dataset_cls(cv=cv,
                                             split="test", src=src,
                                                 tokenizer=tokenizer,
                                                 max_length=max_length,
-                                                gt_only='all' not in task or args.unlabeled_train_only,
+                                                gt_only=True,
                                                 device=device,
                                                 base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                                 small_tag=args.small_tag,
@@ -869,6 +884,91 @@ if __name__ == "__main__":
                 ])
                 time_epoch = t2-t1
                 time_epochs.append(time_epoch)
+                
+                for batch_idx, batch in enumerate(valid_dataloader_unlabel):
+                    batch["data"] = batch["data"].to(device)
+                    cls_indexes = torch.nonzero(
+                        batch["data"].T == tokenizer.cls_token_id)
+                    if "col-popl" in task:
+                        logits, = model(batch["data"].T, cls_indexes) 
+                        labels = batch["label"].T
+                        logits = []
+                        labels_1d = []
+                        all_labels = []
+                        for _, x in enumerate(logits):
+                            logits.append(x.expand(sum(labels[_]>-1), args.num_classes))
+                            labels_1d.extend(labels[_][labels[_]>-1])
+                            all_labels.append(labels[_][labels[_]>-1].cpu().detach().numpy())
+                        logits = torch.cat(logits, dim=0).to(device)
+                        labels_1d = torch.as_tensor(labels_1d).to(device)
+                        all_preds = get_col_pred(logits, labels, batch["idx"], top_k=500)#.cpu().detach().numpy()
+                        vl_pred_list.update(all_preds)
+                        loss = loss_fn(logits, labels_1d)
+                    else:
+                        logits = model(batch["data"].T, cls_indexes=cls_indexes)
+                        # if len(logits.shape) == 2:
+                        #     logits = logits.unsqueeze(0)
+                        # logits = torch.zeros(cls_indexes.shape[0],
+                        #                             logits.shape[2]).to(device)
+                        # for n in range(cls_indexes.shape[0]):
+                        #     i, j = cls_indexes[n]
+                        #     logit_n = logits[i, j, :]
+                        #     logits[n] = logit_n
+                        if "sato" in task or "gt-" in task:
+                            if 'gt-' in task and '-all' in task:
+                                labels = batch["label"].T
+                                new_logits = []
+                                labels_1d = []
+                                all_labels = []
+                                for _, x in enumerate(logits):
+                                    if labels[_] > -1:
+                                        new_logits.append(x)
+                                    
+                                new_logits = torch.stack(new_logits, dim=0).to(device)
+                                labels_1d = labels[labels > -1]
+                                all_labels = labels[labels > -1].cpu().detach().numpy().tolist()
+                                
+                                vl_pred_list += new_logits.argmax(
+                                    1).cpu().detach().numpy().tolist()
+                                vl_true_list += all_labels
+                                
+                                loss = loss_fn(new_logits, labels_1d)
+                            else:                        
+                                vl_pred_list += logits.argmax(
+                                    1).cpu().detach().numpy().tolist()
+                                vl_true_list += batch["label"].cpu().detach().numpy().tolist()
+                                loss = loss_fn(logits, batch["label"])
+
+                        elif "turl" in task:
+                            if task == "turl-re":
+                                all_preds = (logits >= math.log(0.5)
+                                            ).int().detach().cpu().numpy()
+                                all_labels = batch["label"].cpu().detach().numpy()
+                                idxes = np.where(all_labels > 0)[0]
+                                vl_pred_list += all_preds[idxes, :].tolist()
+                                vl_true_list += all_labels[idxes, :].tolist()
+                            elif task == "turl":
+                                # Threshold value = 0.5
+                                vl_pred_list += (logits >= math.log(0.5)
+                                                ).int().detach().cpu().tolist()
+                                vl_true_list += batch["label"].cpu().detach(
+                                ).numpy().tolist()
+                            loss = loss_fn(logits, batch["label"].float())
+
+                    vl_loss += loss.cpu().detach().item()
+
+                vl_loss /= (len(valid_dataset) / batch_size)
+                if "sato" in task or "gt-" in task:
+                    vl_micro_f1_gt = f1_score(vl_true_list,
+                                            vl_pred_list,
+                                            average="micro")
+                    vl_macro_f1_gt = f1_score(vl_true_list,
+                                            vl_pred_list,
+                                            average="macro")
+                    vl_class_f1_gt = f1_score(vl_true_list,
+                                            vl_pred_list,
+                                            average=None,
+                                            labels=np.arange(args.num_classes))
                 print(
                     "Epoch {} ({}): tr_loss={:.7f} tr_macro_f1={:.4f} tr_micro_f1={:.4f} "
                     .format(epoch, task, tr_loss, tr_macro_f1, tr_micro_f1),
@@ -882,6 +982,8 @@ if __name__ == "__main__":
                             f"valid/loss": vl_loss,
                             f"valid/macro_f1": vl_macro_f1,
                             f"valid/micro_f1": vl_micro_f1,
+                            f"valid/macro_f1_gt": vl_macro_f1_gt,
+                            f"valid/micro_f1_gt": vl_micro_f1_gt,
                             f"train/time": time_epoch,
                         }, step=num_train_epochs*repeat_i+epoch+1, commit=True)    
 
@@ -903,6 +1005,7 @@ if __name__ == "__main__":
     # ======================= Test =======================
         print("Test starts")
         model_savepath = "{}_best_last_{}.pt".format(file_path,  repeat_i)
+        print("Save model to", model_savepath)
         torch.save(model.state_dict(), model_savepath)
         for f1_name in ["f1_macro", "f1_micro"]:
             model_savepath = "{}_best_{}_{}.pt".format(file_path, f1_name, repeat_i)

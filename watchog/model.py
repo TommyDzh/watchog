@@ -585,6 +585,7 @@ class BertForMultiOutputClassification(nn.Module):
 
 
 
+
 class BertForMultiOutputClassificationColPopl(nn.Module):
 
     def __init__(self, hp, device='cuda', lm='roberta', col_pair='None', n_seed_cols=-1, cls_for_md=False):
@@ -1369,6 +1370,8 @@ class Verifier(nn.Module):
                     nn.Linear(input_size, hidden_size),
                     nn.ReLU(),
                     nn.Dropout(dropout),)
+                if num_layers is None:
+                    num_layers = 2
                 for _ in range(num_layers-1):
                     self.ffn.add_module(f"linear{_}", nn.Linear(hidden_size, hidden_size))
                     self.ffn.add_module(f"relu{_}", nn.ReLU())
@@ -1601,3 +1604,53 @@ class Verifier(nn.Module):
             embs =  gate * target
             scores = self.ffn(embs)
         return scores  # (loss), logits, (hidden_states), (attentions)
+
+
+
+
+class VerifierSep(nn.Module):
+
+    def __init__(self, module ="ffn", dropout=0.0, norm=None, input_size=1, num_layers=None):
+        super().__init__()
+        hidden_size = 768
+        input_size = input_size * hidden_size
+        self.module = module
+        if module == "ffn":
+            if norm == "batch_norm":
+                if num_layers is None:
+                    self.ffn = nn.Sequential(
+                        nn.Linear(input_size, hidden_size),
+                        nn.BatchNorm1d(hidden_size),
+                        nn.SiLU(),
+                        nn.Dropout(dropout),
+                        nn.Linear(hidden_size, hidden_size),
+                        nn.BatchNorm1d(hidden_size),
+                        nn.SiLU(),
+                        nn.Dropout(dropout),
+                        nn.Linear(hidden_size, hidden_size),
+                    )
+                    self.linear = nn.Linear(hidden_size, 1)
+
+
+    def forward(
+        self,
+        embs,
+        return_embs=False,
+    ):
+        embs_dim = len(embs.size())
+        if embs_dim == 3:
+            B, L, D = embs.size()
+            embs = embs.reshape(B*L, D)
+            
+        if "ffn" in self.module:
+
+            embs = self.ffn(embs)
+            scores = self.linear(embs)
+            
+            if embs_dim == 3:
+                scores = scores.reshape(B, L, 1)
+            
+        if return_embs:
+            return scores, embs
+        else:
+            return scores

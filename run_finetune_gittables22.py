@@ -52,7 +52,7 @@ small_tag = 'semi1'
 #     # os.system('{} & '.format(cmd))
 #     subprocess.run(cmd, shell=True, check=True)
 max_unlabeled = 8
-comment = "AttnMask-max-unlabeled@{}".format(max_unlabeled)
+comment = "AttnMask-max-unlabeled@{}-last".format(max_unlabeled)
 for task in ['gt-semtab22-dbpedia-all0']:
     cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft.py --wandb True \
                 --shortcut_name {} --task {} --use_attention_mask True --max_length {} --max_unlabeled {} --batch_size {} --epoch {} \

@@ -33,13 +33,15 @@ from watchog.dataset import (
     ColPoplTablewiseDataset
 )
 
-from watchog.dataset import SOTABTablewiseIterateDataset, GittablesTablewiseIterateDataset, VerificationBinaryDataset
-from watchog.model import Verifier, BertMultiPairPooler, BertForMultiOutputClassification, BertForMultiOutputClassificationColPopl
+from watchog.dataset import SOTABTablewiseIterateDataset, GittablesTablewiseIterateDataset, VerificationBinaryDataset, GittablesTablewiseIterateClusterDataset
+from watchog.model import VerifierSep, BertMultiPairPooler, BertForMultiOutputClassification, BertForMultiOutputClassificationColPopl
 from watchog.model import SupCLforTable, UnsupCLforTable, lm_mp
 from watchog.utils import load_checkpoint, f1_score_multilabel, collate_fn_iter, veri_collate_fn, get_col_pred, ColPoplEvaluator
 from watchog.utils import task_num_class_dict
 from accelerate import DistributedDataParallelKwargs
 import wandb
+import warnings
+warnings.filterwarnings("ignore")
 
 import itertools
 from copy import deepcopy
@@ -74,6 +76,7 @@ if __name__ == "__main__":
     parser.add_argument("--wandb", type=bool, default=False)
     parser.add_argument("--model", type=str, default="Watchog")
     parser.add_argument("--loss", type=str, default="BCE")
+    parser.add_argument("--reg_weight", type=float, default=1.0)
     parser.add_argument("--norm", type=str, default="batch_norm") 
     parser.add_argument("--num_layers", type=int, default=None) 
     parser.add_argument("--max_list_length", type=int, default=10)
@@ -81,7 +84,7 @@ if __name__ == "__main__":
     parser.add_argument("--reweight", type=bool, default=True) 
     parser.add_argument("--veri_module", type=str, default="ffn") 
     parser.add_argument("--context", type=str, default=None) 
-    parser.add_argument("--data_version", type=str, default="5") 
+    parser.add_argument("--data_version", type=str, default="cluster_2") 
     # None: only drop up to 2/half columns; 1: drop more column until there are pos permutation; 2: drop up to 1 columns
     # 3: add more negtives by drop up to 1 columns 4: train&valid, only drop up to 2/half columns 
     # 5: train&valid, add more negtives by drop up to 1 columns
@@ -90,7 +93,7 @@ if __name__ == "__main__":
     # 8: train (up to 3 cols, neg only) + valid (7)
     # 9: train (up to 3 cols, neg only ) + valid (5)
     # 10: train (up to 3 cols, all negs and pos) + valid (5)
-    parser.add_argument("--test_version", type=str, default=None) # None: only drop up to 2/half columns; 2: drop up to 1 columns
+    parser.add_argument("--test_version", type=str, default="cluster") # None: only drop up to 2/half columns; 2: drop up to 1 columns
   
     parser.add_argument("--use_attention_mask", type=bool, default=True)
     parser.add_argument("--unlabeled_train_only", type=bool, default=True)
@@ -169,7 +172,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate") # 1e-5, 2e-5
     parser.add_argument("--task",
                         type=str,
-                        default='SOTAB',
+                        default="gt-semtab22-dbpedia-all0",
                         choices=[
                             "sato0", "sato1", "sato2", "sato3", "sato4",
                             "msato0", "msato1", "msato2", "msato3", "msato4",
@@ -212,7 +215,8 @@ if __name__ == "__main__":
                         help="e.g., by_table_t5_v1")
     parser.add_argument("--data_path",
                         type=str,
-                        default="/data/yongkang/TU/")
+                        default="/data/zhihao/TU/")
+                        # default="/data/yongkang/TU/")
     parser.add_argument("--pretrained_ckpt_path",
                         type=str,
                         default="/data/zhihao/TU/Watchog/model/")    
@@ -325,7 +329,7 @@ if __name__ == "__main__":
                                                  version=args.pool_version,
                                                  use_attention_mask=args.use_attention_mask)
         if args.task == 'gt-semtab22-dbpedia-all0':
-            best_state_dict = torch.load("/data/zhihao/TU/Watchog/outputs/gt-semtab22-dbpedia-all0/bert-base-uncased-fromscratch-semi1-Repeat@5-AttnMask-UnlabelValid-max-unlabeled@8-poolv0-unlabeled8-randFalse-bs16-ml128-ne50-do0.1_best_f1_macro.pt", map_location=device)
+            best_state_dict = torch.load("/data/zhihao/TU/Watchog/outputs/gt-semtab22-dbpedia-all0/bert-base-uncased-fromscratch-semi1-Repeat@5-AttnMask-Random-Random-max-unlabeled@8-poolv0-unlabeled8-randTrue-bs16-ml128-ne50-do0.1_best_last_0.pt", map_location=device)
         elif args.task == 'SOTAB':
             best_state_dict = torch.load("/data/yongkang/TU/Watchog/outputs/SOTAB/bert-base-uncased-fromscratch-comma-bs16-ml128-ne50-do0.5_fully_deduplicated_best_f1_micro.pt", map_location=device)
         else:
@@ -416,9 +420,9 @@ if __name__ == "__main__":
             if task[-1] in "01234":
                 cv = int(task[-1])
                 if args.data_version is not None or args.data_version != "None":
-                    veri_dataset = VerificationBinaryDataset(data_path=f"/data/zhihao/TU/Watchog/verification/{args.task}_veri_data_{args.data_version}.pth", pos_ratio=args.pos_ratio if not args.reweight else None, context=args.context)
+                    veri_dataset = VerificationBinaryDataset(data_path=f"/data/zhihao/TU/Watchog/verification/{args.task}/random1_veri_data_{args.data_version}.pth", pos_ratio=args.pos_ratio if not args.reweight else None, context=args.context)
                 else:
-                    veri_dataset = VerificationBinaryDataset(data_path=f"/data/zhihao/TU/Watchog/verification/{args.task}_veri_data.pth", pos_ratio=args.pos_ratio if not args.reweight else None, context=args.context)
+                    veri_dataset = VerificationBinaryDataset(data_path=f"/data/zhihao/TU/Watchog/verification/{args.task}/random1_veri_data.pth", pos_ratio=args.pos_ratio if not args.reweight else None, context=args.context)
                 # veri_dataset = VerificationBinaryDataset(pos_ratio=args.pos_ratio)
                 veri_padder = veri_collate_fn(0, binary=True)
                 veri_dataloader = DataLoader(
@@ -427,23 +431,24 @@ if __name__ == "__main__":
                 
                 
                 
-                test_dataset_iter = GittablesTablewiseIterateDataset(cv=cv,
+                test_dataset_iter = GittablesTablewiseIterateClusterDataset(cv=cv,
                             split="test", src=src,
                             tokenizer=tokenizer,
                             max_length=max_length,
                             gt_only='all' not in task,
                             device=device,
                             base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
-                            small_tag="semi1")
+                            small_tag="semi1",
+                            model=model)
                 padder = collate_fn_iter(tokenizer.pad_token_id)
                 test_dataloader_iter = DataLoader(test_dataset_iter,
                                                 batch_size=1,
                                             #   collate_fn=collate_fn)
                                             collate_fn=padder) 
                 if args.test_version is None or args.test_version == "None":
-                    test_dataset = torch.load(f"/data/zhihao/TU/Watchog/verification/{args.task}_test_data.pth")
+                    test_dataset = torch.load(f"/data/zhihao/TU/Watchog/verification/{args.task}/random1_test_data.pth")
                 else:
-                    test_dataset = torch.load(f"/data/zhihao/TU/Watchog/verification/{args.task}_test_data_{args.test_version}.pth")
+                    test_dataset = torch.load(f"/data/zhihao/TU/Watchog/verification/{args.task}/random1_test_data_{args.test_version}.pth")
                 test_embs = test_dataset['embs']
                 test_logits = test_dataset['logits']
                 test_embs_target = test_dataset['target_embs'] if 'target_embs' in test_dataset else None
@@ -613,7 +618,7 @@ if __name__ == "__main__":
                 f"tag_name": tag_name,
             }, commit=True)
     
-    verifier = Verifier(module=args.veri_module, dropout=args.dropout_prob, norm=args.norm, num_layers=args.num_layers).to(device)
+    verifier = VerifierSep(module=args.veri_module, dropout=args.dropout_prob, norm=args.norm, num_layers=args.num_layers).to(device)
     t_total = len(veri_dataloader) * num_train_epochs
     optimizer = AdamW(verifier.parameters(), lr=args.lr, eps=1e-8)
     scheduler = get_cosine_with_min_lr_schedule_with_warmup(optimizer,
@@ -652,42 +657,91 @@ if __name__ == "__main__":
     eval_dict = defaultdict(dict)
     time_epochs = []
     # =============================Training Loop=============================
+    center = None
+    embs_train = []
+    labels_train = []
+    for batch_idx, batch in enumerate(veri_dataloader):
+        embs = batch["embs"].to(device)
+        labels = batch["label"].to(device)
+        embs_train.append(embs)
+        labels_train.append(labels)
+    embs_train = torch.cat(embs_train, dim=0)
+    labels_train = torch.cat(labels_train, dim=0).reshape(-1)
+    center = embs_train[labels_train == 1].mean(dim=0).reshape(1,-1).detach()
+    
     for epoch in range(num_train_epochs):
         t1 = time()
         print("Epoch", epoch, "starts")
         model.eval()
         verifier.train()
         tr_loss = 0.
+        tr_reg_loss = 0.
+        tr_bce_loss = 0.
         device = accelerator.device
         num_samples = 0
+        reg_loss_list = []
         for batch_idx, batch in enumerate(veri_dataloader):
+            verifier.eval()
+            _, mu_id = verifier(center, return_embs=True)
+            mu_id = mu_id.detach()
+            verifier.train()
+            
+            
             embs = batch["embs"].to(device)
             logits = batch["logits"].to(device)
-            
             # cls_indexes = batch["cls_indexes"].to(device)
             # input_data = batch["data"].T.to(device)
             # logits, embs = model(input_data, cls_indexes=cls_indexes, get_enc=True)
-            scores = verifier(embs)
+            scores, embeddings = verifier(embs, return_embs=True)
 
             num_samples += len(scores)
             if args.loss == "MSE":
                 labels = batch["label"].to(device).squeeze().float()
-                loss = loss_fn(scores.squeeze(), labels)
+                bce_loss = loss_fn(scores.squeeze(), labels)
                 pos_weights = torch.where(labels == 1.0, pos_weight, 1.0)
-                loss = (loss * pos_weights).mean()
+                bce_loss = (bce_loss * pos_weights).mean()
             else:
-                loss = loss_fn(scores.squeeze(), batch["label"].to(device).squeeze().float())
+                labels = batch["label"].to(device).squeeze().float()
+                bce_loss = loss_fn(scores.squeeze(), labels)
+                if args.reg_weight > 0:
+                    # calculate reg loss
+                    id_mask = labels == 1
+                    ood_mask = labels == 0
 
+                    id_embeddings = embeddings[id_mask]
+                    ood_embeddings = embeddings[ood_mask]
+                    
+                    id_distance = torch.norm(id_embeddings - mu_id, dim=1).pow(2).mean()
+                    if len(ood_embeddings) > 0:  # Handle cases with no OOD samples
+                        ood_distance = torch.norm(ood_embeddings - mu_id, dim=1).pow(2).mean()
+                    else:
+                        ood_distance = 0.0
+
+                    reg_loss = id_distance - ood_distance
+                    reg_loss_list.append(reg_loss.cpu().detach().item())
+                else:
+                    reg_loss = 0
+                
+                loss = bce_loss + args.reg_weight * reg_loss
+                
             accelerator.backward(loss)
             # loss.backward()
             # print(f"batch {batch_idx}", loss.cpu().detach().item(), num_samples)
             tr_loss += loss.cpu().detach().item()
+            if args.reg_weight > 0:
+                tr_reg_loss += reg_loss.cpu().detach().item()
+                tr_bce_loss += bce_loss.cpu().detach().item()
+            else:
+                tr_reg_loss += 0
+                tr_bce_loss += loss.cpu().detach().item()
             optimizer.step()
             current_lr = scheduler.get_lr()[-1]
             scheduler.step()
             optimizer.zero_grad()
             
         tr_loss /= num_samples
+        tr_bce_loss /= num_samples
+        tr_reg_loss /= num_samples
         t2 = time()
         time_epoch_train = t2-t1
         
@@ -758,6 +812,8 @@ if __name__ == "__main__":
                 if accelerator.is_local_main_process and args.wandb:
                     wandb.log({
                             f"train/loss": tr_loss,
+                            f"train/bce_loss": tr_bce_loss,
+                            f"train/reg_loss": tr_reg_loss,
                             f"train/time": time_epoch_train,
                             f"train/learning_rate": current_lr,
                             f"test/micro_f1": ts_micro_f1,

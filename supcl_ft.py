@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader, RandomSampler
 from transformers import BertTokenizer, BertForSequenceClassification, BertConfig, AutoTokenizer
 from transformers import AdamW, get_linear_schedule_with_warmup
 from accelerate import Accelerator
-
+from copy import deepcopy
 
 torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     parser.add_argument("--wandb", type=bool, default=False)
     parser.add_argument("--model", type=str, default="Watchog")
     parser.add_argument("--use_attention_mask", type=bool, default=False)
-    parser.add_argument("--unlabeled_train_only", type=bool, default=True)
+    parser.add_argument("--unlabeled_train_only", type=bool, default=False)
     parser.add_argument("--pool_version", type=str, default="v0")
     parser.add_argument("--random_sample", type=bool, default=False)
     parser.add_argument("--comment", type=str, default="debug", help="to distinguish the runs")
@@ -622,6 +622,7 @@ if __name__ == "__main__":
     best_vl_loss_epoch = -1
     loss_info_list = []
     eval_dict = defaultdict(dict)
+    best_model_dict = {}
     time_epochs = []
     # =============================Training Loop=============================
     for epoch in range(num_train_epochs):
@@ -838,17 +839,16 @@ if __name__ == "__main__":
             if vl_micro_f1 > best_vl_micro_f1:
                 best_vl_micro_f1 = vl_micro_f1
                 model_savepath = "{}_best_f1_micro.pt".format(file_path)
-                torch.save(model.state_dict(), model_savepath)
+                best_model_dict["f1_micro"] = deepcopy(model.state_dict())
                 best_vl_micro_f1s_epoch = epoch
             if vl_macro_f1 > best_vl_macro_f1:
                 best_vl_macro_f1 = vl_macro_f1
                 model_savepath = "{}_best_f1_macro.pt".format(file_path)
-                torch.save(model.state_dict(), model_savepath)
+                best_model_dict["f1_macro"] = deepcopy(model.state_dict())
                 best_vl_macro_f1s_epoch = epoch
             if best_vl_loss > vl_loss:
                 best_vl_loss = vl_loss
                 model_savepath = "{}_best_loss.pt".format(file_path)
-                torch.save(model.state_dict(), model_savepath)
                 best_vl_loss_epoch = epoch
             loss_info_list.append([
                 tr_loss, tr_macro_f1, tr_micro_f1, vl_loss, vl_macro_f1,
@@ -894,9 +894,12 @@ if __name__ == "__main__":
                
 # ======================= Test =======================
     print("Test starts")
-    for f1_name in ["f1_macro", "f1_micro", "loss"]:
+    model_savepath = "{}_best_last.pt".format(file_path)
+    torch.save(model.state_dict(), model_savepath)
+    for f1_name in ["f1_macro", "f1_micro"]:
         model_savepath = "{}_best_{}.pt".format(file_path, f1_name)
-        model.load_state_dict(torch.load(model_savepath, map_location=device))
+        torch.save(best_model_dict[f1_name], model_savepath)
+        model.load_state_dict(best_model_dict[f1_name])
         model.eval()
         if "popl" in task:
             ts_pred_list = {}

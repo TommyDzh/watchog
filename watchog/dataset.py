@@ -1690,7 +1690,8 @@ class GittablesTablewiseDataset(data.Dataset):
             train_ratio: float = 1.0,
             max_unlabeled=8,
             random_sample=False, # TODO
-            train_only=False): # TODO
+            train_only=False,
+            seed=None): # TODO
         if device is None:
             device = torch.device('cpu')
         basename = small_tag+ "_cv_{}.csv"
@@ -1738,8 +1739,8 @@ class GittablesTablewiseDataset(data.Dataset):
             #     break
             labeled_columns = group_df[group_df['class_id'] > -1]
             unlabeled_columns = group_df[group_df['class_id'] == -1]
-            num_unlabeled = min(max(max_unlabeled-len(labeled_columns), 0), len(unlabeled_columns))
-            unlabeled_columns = unlabeled_columns.sample(num_unlabeled) if random_sample else unlabeled_columns[0:num_unlabeled]
+            num_unlabeled = min(max(max_unlabeled-len(labeled_columns), 0), len(unlabeled_columns)) if max_unlabeled > 0 else len(unlabeled_columns)
+            unlabeled_columns = unlabeled_columns.sample(num_unlabeled, random_state=seed) if random_sample else unlabeled_columns[0:num_unlabeled]
             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns.sample(min(10-len(labeled_columns), len(unlabeled_columns)))])
             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(10-len(labeled_columns), 0), len(unlabeled_columns))]])
             group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns]) # TODO
@@ -2411,7 +2412,209 @@ class GittablesCVTablewiseDataset(data.Dataset):
         #"cls_indexes": self.table_df.iloc[idx]["cls_indexes"]}
         
         
+from sklearn.cluster import KMeans
+import torch.nn.functional as F
+class GittablesTablewiseIterateClusterDataset(data.Dataset):
+
+    def __init__(
+            self,
+            cv: int,
+            split: str,
+            src: str,  # train or test
+            tokenizer: AutoTokenizer,
+            max_length: int = 256,
+            gt_only: bool = False,
+            device: torch.device = None,
+            base_dirpath: str = "/data/zhihao/TU/GitTables/semtab_gittables/2022",
+            base_tag: str = '', # blank, comma
+            small_tag: str = "",
+            train_ratio: float = 1.0,
+            max_unlabeled=8,
+            adaptive_max_length=True,
+            random_sample=False, # TODO
+            train_only=False,
+            model=None): # TODO
+        if device is None:
+            device = torch.device('cpu')
+        basename = small_tag+ "_cv_{}.csv"
+    
+        if split in ["train", "valid"]:
+            df_list = []
+            for i in range(5):
+                if i == cv:
+                    continue
+                filepath = os.path.join(base_dirpath, basename.format(i))
+                df_list.append(pd.read_csv(filepath))
+                print(split, i)
+            df = pd.concat(df_list, axis=0)
+        else:
+            # test
+            filepath = os.path.join(base_dirpath, basename.format(cv))
+            df = pd.read_csv(filepath)
+            print(split)
+
+
+        if gt_only:
+            df = df[df["class_id"] > -1]
+        if train_only and split != "train":
+            df = df[df["class_id"] > -1]
+
         
+        data_list = []
+        
+        df['class_id'] = df['class_id'].astype(int)
+        df.drop(df[(df['data'].isna()) & (df['class_id'] == -1)].index, inplace=True)
+        df['col_idx'] = df['col_idx'].astype(int)
+        df['data'] = df['data'].astype(str)
+        
+        num_tables = len(df.groupby("table_id"))
+        valid_index = int(num_tables * 0.8)
+        num_train = int(train_ratio * num_tables * 0.8)        
+        
+        # df.drop(df[(df['data'] == '') & (df['class_id'] == -1)].index, inplace=True)
+        total_num_cols = 0
+        self.correctness_checklist = []
+        for i, (index, group_df) in enumerate(df.groupby("table_id")):
+            if (split == "train") and ((i >= num_train) or (i >= valid_index)):
+                break
+            if split == "valid" and i < valid_index:
+                continue
+            #     break
+            
+            group_df = group_df.reset_index(drop=True)
+            # scores = bm25.get_scores(test_dataset_gt[idx]["data"].cpu().tolist())
+            # semantic_scores = torch.tensor(group_df["data"].apply(lambda x: max(bm25.get_scores(tokenizer.encode(
+            #         tokenizer.cls_token + " " + x, add_special_tokens=False, max_length=max_length, truncation=True)))))
+            
+            # labeled_columns_index = group_df[group_df['class_id'] > -1].index.to_list()
+            # assert len(labeled_columns_index) < 8
+            # if set(labeled_columns_index).issubset(set(semantic_scores.topk(min(len(group_df), max_unlabeled)).indices.tolist())):
+            #     self.correctness_checklist.append(1)
+            # else:
+            #     self.correctness_checklist.append(0)
+            if len(group_df) > max_unlabeled:
+                # col_embs = sb_model.encode(group_df["data"].to_list())
+                
+                with torch.no_grad():
+                    model.eval()
+                    model = model.to(device)
+                    token_list = group_df["data"].apply(lambda x: tokenizer.encode(
+                            tokenizer.cls_token + " " + x, add_special_tokens=False, max_length=max_length, truncation=True)).tolist()
+                    token_list = torch.nn.utils.rnn.pad_sequence(
+                    [torch.LongTensor(tokens) for tokens in token_list], padding_value=0).T.to(device)
+                    cls_indexes = torch.nonzero(
+                                token_list == tokenizer.cls_token_id)
+                    logits, embs = model(token_list, cls_indexes=cls_indexes, get_enc=True)
+                    col_embs = embs.cpu()
+                    if len(embs.size()) == 1:
+                        col_embs = col_embs.unsqueeze(0)
+                        
+                kmeans = KMeans(n_clusters=max_unlabeled-1, random_state=0).fit(col_embs)
+                centers = torch.tensor(kmeans.cluster_centers_)
+                col_embs = torch.tensor(col_embs)
+                cluster_labels = torch.tensor(kmeans.labels_)
+                col_embs_cluster = []
+                col_embs_cluster_index = []
+                for cluster_i in np.unique(kmeans.labels_):
+                    col_embs_cluster.append(col_embs[cluster_labels == cluster_i])
+                    col_embs_cluster_index.append((cluster_labels == cluster_i).nonzero().reshape(-1))
+                num_clusters = len(col_embs_cluster)
+            labeled_columns = group_df[group_df['class_id'] > -1]
+            labeled_columns.sort_values(by=['col_idx'], inplace=True)
+            for index, target_column in labeled_columns.iterrows():
+                target_col_idx = target_column["col_idx"]
+                if len(group_df) > max_unlabeled:
+                    closest_cols = []
+                    for i in range(num_clusters):
+                        # try:
+                        sim = F.cosine_similarity(col_embs_cluster[i], col_embs[index].reshape(1, -1))
+                        # except:
+                        #     raise ValueError("here")
+                        # try:
+                        closest_index = col_embs_cluster_index[i][sim.argmax().item()].item()
+                        # except:
+                        #     print("here")
+                        if closest_index == index and len(col_embs_cluster[i]) > 1:
+                            closest_index = col_embs_cluster_index[i][sim.argsort(descending=True)[1].item()].item()
+                        closest_cols.append(closest_index)
+                    other_columns = group_df.iloc[closest_cols]
+                else:
+                    other_columns = group_df.drop(index)
+                target_table = pd.concat([target_column.to_frame().T, other_columns], ignore_index=True)
+                
+                # if len(group_df) >= 8:
+                #     assert len(target_table) == max_unlabeled
+                # else:
+                #     assert len(target_table) == len(group_df)
+    
+                
+                target_cls = target_column["class_id"]
+                target_table.sort_values(by=['col_idx'], inplace=True)
+                col_idx_list = target_table["col_idx"].tolist()
+                # target_table.sort_values(by=['col_idx'], inplace=True)
+
+                if max_length <= 128 and adaptive_max_length:
+                    cur_maxlen = min(max_length, 512 // len(target_table) - 1)
+                else:
+                    cur_maxlen = max_length
+                    
+                token_ids_list = target_table["data"].apply(lambda x: tokenizer.encode(
+                    tokenizer.cls_token + " " + x, add_special_tokens=False, max_length=cur_maxlen, truncation=True)).tolist(
+                    )
+                token_ids = torch.LongTensor(reduce(operator.add,
+                                                    token_ids_list)).to(device)
+
+                target_col_mask = []
+                cls_index_value = 0
+                context_id = 1
+                meet_target = False
+                for idx, col_i in enumerate(col_idx_list):
+                    if col_i == target_col_idx:
+                        target_col_mask += [0] * len(token_ids_list[idx])
+                        meet_target = True
+                    else:
+                        target_col_mask += [context_id] * len(token_ids_list[idx])
+                        context_id += 1
+                    if not meet_target:
+                        cls_index_value += len(token_ids_list[idx])
+                cls_index_list = [cls_index_value] 
+                for cls_index in cls_index_list:
+                    assert token_ids[
+                        cls_index] == tokenizer.cls_token_id, "cls_indexes validation"
+                cls_indexes = torch.LongTensor(cls_index_list).to(device)
+                class_ids = torch.LongTensor(
+                    [target_cls]).to(device)
+                target_col_mask = torch.LongTensor(target_col_mask).to(device)
+                data_list.append(
+                    [index,
+                    len(target_table), token_ids, class_ids, cls_indexes, target_col_mask])                
+        print(split, len(data_list))
+        self.table_df = pd.DataFrame(data_list,
+                                     columns=[
+                                         "table_id", "num_col", "data_tensor",
+                                         "label_tensor", "cls_indexes", "target_col_mask"
+                                     ])
+        """
+        # NOTE: msato contains a small portion of single-col tables. keep it to be consistent.  
+        if multicol_only:
+            # Check
+            num_all_tables = len(self.table_df)
+            self.table_df = self.table_df[self.table_df["num_col"] > 1]
+            assert len(self.table_df) == num_all_tables
+        """
+
+    def __len__(self):
+        return len(self.table_df)
+
+    def __getitem__(self, idx):
+        return {
+            "data": self.table_df.iloc[idx]["data_tensor"],
+            "label": self.table_df.iloc[idx]["label_tensor"],
+            "cls_indexes": self.table_df.iloc[idx]["cls_indexes"],
+            "target_col_mask": self.table_df.iloc[idx]["target_col_mask"],
+        }
+        #"idx": torch.LongTensor([idx])}
+        #"cls_indexes": self.table_df.iloc[idx]["cls_indexes"]}
         
 class GittablesTablewiseIterateDataset(data.Dataset):
 
@@ -2430,7 +2633,8 @@ class GittablesTablewiseIterateDataset(data.Dataset):
             train_ratio: float = 1.0,
             max_unlabeled=8,
             random_sample=False, # TODO
-            train_only=False): # TODO
+            train_only=False,
+            seed=None): # TODO
         if device is None:
             device = torch.device('cpu')
         basename = small_tag+ "_cv_{}.csv"
@@ -2479,7 +2683,7 @@ class GittablesTablewiseIterateDataset(data.Dataset):
             labeled_columns = group_df[group_df['class_id'] > -1]
             unlabeled_columns = group_df[group_df['class_id'] == -1]
             num_unlabeled = min(max(max_unlabeled-len(labeled_columns), 0), len(unlabeled_columns)) if max_unlabeled > 0 else len(unlabeled_columns)
-            unlabeled_columns = unlabeled_columns.sample(num_unlabeled) if random_sample else unlabeled_columns[0:num_unlabeled]
+            unlabeled_columns = unlabeled_columns.sample(num_unlabeled, random_state=seed) if random_sample else unlabeled_columns[0:num_unlabeled]
             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns.sample(min(10-len(labeled_columns), len(unlabeled_columns)))])
             # group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns[0:min(max(10-len(labeled_columns), 0), len(unlabeled_columns))]])
             group_df = pd.concat([group_df[group_df['class_id'] > -1], unlabeled_columns]) # TODO
@@ -2624,12 +2828,12 @@ class VerificationBinaryDataset(data.Dataset):
             context = None,
             ): 
         data_raw = torch.load(data_path)
-        veri_label = data_raw["label"]
-        veri_data = data_raw["data"]
-        veri_cls_indexes = data_raw["cls_indexes"]
+        veri_label = data_raw["label"].long()
+        # veri_data = data_raw["data"]
+        # veri_cls_indexes = data_raw["cls_indexes"]
         veri_embs = data_raw["embs"]
-        veri_target_embs = data_raw["target_embs"]
-        veri_logits = data_raw["logits"]
+        # veri_target_embs = data_raw["target_embs"]
+        # veri_logits = data_raw["logits"]
         
         self.neg_expand = int(1/pos_ratio)-1 if pos_ratio is not None else 1
         self.veri_label = {}
@@ -2642,9 +2846,9 @@ class VerificationBinaryDataset(data.Dataset):
             for veri_j in range(len(veri_label[veri_i])):
                 if veri_label[veri_i][veri_j] == 1:
                     labels_i = torch.tensor([1]).reshape(-1)
-                    self.veri_data[i] = veri_data[veri_i][veri_j]
+                    # self.veri_data[i] = veri_data[veri_i][veri_j]
                     self.veri_label[i] = labels_i
-                    self.veri_cls_indexes[i] = veri_cls_indexes[veri_i][veri_j] 
+                    # self.veri_cls_indexes[i] = veri_cls_indexes[veri_i][veri_j] 
                     
                     if context is None or context == "None":
                         self.veri_embs[i] = veri_embs[veri_i][veri_j]
@@ -2655,14 +2859,14 @@ class VerificationBinaryDataset(data.Dataset):
                     else:
                         raise ValueError("context {} is not supported".format(context))
                         
-                    self.veri_logits[i] = veri_logits[veri_i][veri_j]
+                    # self.veri_logits[i] = veri_logits[veri_i][veri_j]
                     i += 1
                 else:
                     for _ in range(self.neg_expand):
                         labels_i = torch.tensor([0]).reshape(-1)
-                        self.veri_data[i] = veri_data[veri_i][veri_j]
+                        # self.veri_data[i] = veri_data[veri_i][veri_j]
                         self.veri_label[i] = labels_i
-                        self.veri_cls_indexes[i] = veri_cls_indexes[veri_i][veri_j]
+                        # self.veri_cls_indexes[i] = veri_cls_indexes[veri_i][veri_j]
                         if context is None or context == "None":
                             self.veri_embs[i] = veri_embs[veri_i][veri_j]
                         elif context == "init":
@@ -2672,7 +2876,7 @@ class VerificationBinaryDataset(data.Dataset):
                         else:
                             raise ValueError("context {} is not supported".format(context))
                         
-                        self.veri_logits[i] = veri_logits[veri_i][veri_j]
+                        # self.veri_logits[i] = veri_logits[veri_i][veri_j]
                         i += 1
 
     def __len__(self):
@@ -2680,11 +2884,46 @@ class VerificationBinaryDataset(data.Dataset):
 
     def __getitem__(self, idx):
         return {
-            "data": self.veri_data[idx].reshape(-1),
+            # "data": self.veri_data[idx].reshape(-1),
             "embs": self.veri_embs[idx].reshape(-1),
             "label": self.veri_label[idx],
-            "logits": self.veri_logits[idx],
-            "cls_indexes": self.veri_cls_indexes[idx], 
+            # "logits": self.veri_logits[idx],
+            # "cls_indexes": self.veri_cls_indexes[idx], 
+        }
+
+class VerificationBinaryFastDataset(data.Dataset):
+    def __init__(
+            self,
+            data_path: str = "/data/zhihao/TU/Watchog/verification/veri_data.pth",
+            pos_ratio = None, # clone the negative samples
+            context = None,
+            ): 
+        data_raw = torch.load(data_path)
+        veri_label = data_raw["label"].long()
+        # veri_data = data_raw["data"]
+        # veri_cls_indexes = data_raw["cls_indexes"]
+        veri_embs = data_raw["embs"]
+        # veri_target_embs = data_raw["target_embs"]
+        # veri_logits = data_raw["logits"]
+        
+        self.neg_expand = int(1/pos_ratio)-1 if pos_ratio is not None else 1
+        self.veri_label = {}
+        self.veri_embs = {}
+
+        assert len(veri_label) == len(veri_embs)
+        self.veri_label = veri_label
+        self.veri_embs = veri_embs
+
+    def __len__(self):
+        return len(self.veri_embs)
+
+    def __getitem__(self, idx):
+        return {
+            # "data": self.veri_data[idx].reshape(-1),
+            "embs": self.veri_embs[idx].reshape(-1),
+            "label": self.veri_label[idx].reshape(-1),
+            # "logits": self.veri_logits[idx],
+            # "cls_indexes": self.veri_cls_indexes[idx], 
         }
         
         
@@ -2890,10 +3129,9 @@ class SOTABTablewiseIterateDataset(data.Dataset):
             label_encoder: LabelEncoder = None,
             max_unlabeled=8,
             random_sample=False, # TODO
-            gt_only=True,
+            gt_only=False,
             ):
-        # 
-        base_dirpath = "/data/yongkang/TU/SOTAB"
+        # ?
         if device is None:
             device = torch.device('cpu')
 
@@ -2980,7 +3218,12 @@ class SOTABTablewiseIterateDataset(data.Dataset):
                 target_col_mask = []
                 cls_index_value = 0
                 context_id = 1
+                new_token_ids_list = []
                 for col_j in range(len(token_ids_list)):
+                    if len(set(target_col_mask)) == max_unlabeled-1 and 0 not in target_col_mask and col_j != col_i:
+                        # skip the rest of the columns until the target one
+                        continue
+                    
                     if col_j == col_i:
                         target_col_mask += [0] * len(token_ids_list[col_j])
                     else:
@@ -2988,6 +3231,11 @@ class SOTABTablewiseIterateDataset(data.Dataset):
                         context_id += 1
                     if col_j < col_i:
                         cls_index_value += len(token_ids_list[col_j])
+                    new_token_ids_list.append(token_ids_list[col_j])
+                    if len(set(target_col_mask)) == max_unlabeled and 0 in target_col_mask:
+                        break
+                new_token_ids_list = torch.LongTensor(reduce(operator.add,
+                                                new_token_ids_list)).to(device)
                 cls_index_list = [cls_index_value] 
                 for cls_index in cls_index_list:
                     assert token_ids[
@@ -2998,7 +3246,7 @@ class SOTABTablewiseIterateDataset(data.Dataset):
                 target_col_mask = torch.LongTensor(target_col_mask).to(device)
                 data_list.append(
                     [index,
-                    len(group_df), token_ids, class_ids, cls_indexes, target_col_mask])                
+                    len(group_df), new_token_ids_list, class_ids, cls_indexes, target_col_mask])                
         print(split, len(data_list))
         self.table_df = pd.DataFrame(data_list,
                                      columns=[

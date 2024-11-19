@@ -54,6 +54,7 @@ if __name__ == "__main__":
     parser.add_argument("--unlabeled_train_only", type=bool, default=False)
     parser.add_argument("--pool_version", type=str, default="v0")
     parser.add_argument("--random_sample", type=bool, default=False)
+    parser.add_argument("--random_interval", type=int, default=999999)
     parser.add_argument("--comment", type=str, default="debug", help="to distinguish the runs")
     parser.add_argument(
         "--shortcut_name",
@@ -382,7 +383,8 @@ if __name__ == "__main__":
                                                 base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
                                                 small_tag=args.small_tag,
                                                 max_unlabeled=args.max_unlabeled,
-                                                random_sample=args.random_sample)
+                                                random_sample=args.random_sample,
+                                                seed=0)
                     valid_dataset = dataset_cls(cv=cv,
                                                 split="valid", src=src,
                                                 tokenizer=tokenizer,
@@ -752,6 +754,27 @@ if __name__ == "__main__":
             elif "turl" in task and "popl" not in task:
                 tr_micro_f1, tr_macro_f1, tr_class_f1, _ = f1_score_multilabel(
                     tr_true_list, tr_pred_list)
+
+            if args.random_sample and (epoch+1) % args.random_interval == 0:
+                train_dataset = dataset_cls(cv=cv,
+                                            split="train",
+                                            src=src,
+                                            tokenizer=tokenizer,
+                                            max_length=max_length,
+                                            gt_only='all' not in task,
+                                            device=device,
+                                            base_dirpath=os.path.join(args.data_path, "GitTables/semtab_gittables/2022"),
+                                            small_tag=args.small_tag,
+                                            max_unlabeled=args.max_unlabeled,
+                                            random_sample=args.random_sample,
+                                            seed=epoch)
+
+                train_sampler = RandomSampler(train_dataset)
+                train_dataloader = DataLoader(train_dataset,
+                                                sampler=train_sampler,
+                                                batch_size=batch_size,
+                                            #   collate_fn=collate_fn)
+                                            collate_fn=padder)
 
             # ======================= Validation =======================
             model.eval()
