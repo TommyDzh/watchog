@@ -2828,7 +2828,7 @@ class VerificationBinaryDataset(data.Dataset):
             context = None,
             ): 
         data_raw = torch.load(data_path)
-        veri_label = data_raw["label"].long()
+        veri_label = data_raw["label"]
         # veri_data = data_raw["data"]
         # veri_cls_indexes = data_raw["cls_indexes"]
         veri_embs = data_raw["embs"]
@@ -2880,7 +2880,7 @@ class VerificationBinaryDataset(data.Dataset):
                         i += 1
 
     def __len__(self):
-        return len(self.veri_data)
+        return len(self.veri_embs)
 
     def __getitem__(self, idx):
         return {

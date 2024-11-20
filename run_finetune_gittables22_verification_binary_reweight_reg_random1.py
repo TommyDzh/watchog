@@ -34,16 +34,16 @@ dropout_prob = 0.0
 norm = "batch_norm"
 context = None
 veri_module = "ffn"
-version = "cluster_3"
+version = "cluster_2"
 
 test_version = "cluster"
 # num_layers = 2
 for pos_ratio in [0.2]:
-    for lr in [5e-4, 1e-4]:
-        for reg_weight in [1.0]:
+    for lr in [5e-5]:
+        for reg_weight in [2.0]:
             for task in ['gt-semtab22-dbpedia-all0']: # 'gt-semtab22-dbpedia-all0'
                 comment = "Random1-Reg@{}-mode@{}-context@{}-data@{}-lr@{}-warmup@{}-dp@{}-norm@{}-pos@{}".format(reg_weight, veri_module, context, version, lr, warmup_ratio, dropout_prob, norm,  pos_ratio)
-                cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_verifier_binary_random1_contra_fast.py --wandb True \
+                cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_verifier_binary_random1_contra.py --wandb True \
                             --shortcut_name {} --reg_weight {}  --warmup_ratio {} --norm {}  --data_version {} --test_version {} --veri_module {} --context {} --reweight True --task {} --pos_ratio {} --use_attention_mask True --max_length {} --lr {} --max_unlabeled {} --batch_size {} --epoch {} \
                             --dropout_prob {} --pretrained_ckpt_path "{}" --cl_tag {} --small_tag "{}" --comment "{}" {} {} {}'''.format(
                     gpus, base_model, reg_weight, warmup_ratio, norm, version,  test_version, veri_module, context, task,  pos_ratio, ml, lr, max_unlabeled, bs, n_epochs, dropout_prob,

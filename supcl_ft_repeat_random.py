@@ -384,7 +384,7 @@ if __name__ == "__main__":
                                                 small_tag=args.small_tag,
                                                 max_unlabeled=args.max_unlabeled,
                                                 random_sample=args.random_sample,
-                                                seed=0)
+                                                seed=None)
                     valid_dataset = dataset_cls(cv=cv,
                                                 split="valid", src=src,
                                                 tokenizer=tokenizer,

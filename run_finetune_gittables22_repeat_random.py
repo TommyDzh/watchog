@@ -53,7 +53,7 @@ small_tag = 'semi1'
 #     subprocess.run(cmd, shell=True, check=True)
 max_unlabeled = 8
 repeat=5
-comment = "Repeat@{}-AttnMask-Train-Random-inf-max-unlabeled@{}".format(repeat, max_unlabeled)
+comment = "Repeat@{}-AttnMask-Train-Random-infNone-max-unlabeled@{}".format(repeat, max_unlabeled)
 for task in ['gt-semtab22-dbpedia-all0']:
     cmd = '''CUDA_VISIBLE_DEVICES={} python supcl_ft_repeat_random.py --wandb True \
                 --shortcut_name {} --task {} --repeat {} --random_sample True --use_attention_mask True --max_length {} --max_unlabeled {} --batch_size {} --epoch {} \
